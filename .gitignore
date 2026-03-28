@@ -1,0 +1,8 @@
+__pycache__/
+venv/
+*.pyc
+.pytest_cache/
+*.mid
+*.wav
+.vscode/
+.idea/
