@@ -24,7 +24,9 @@ def high_pass_filter(audio, sr, cutoff=80):
 
 def noise_gate(audio, threshold=0.005):
     """Zeroes out samples below the absolute amplitude threshold."""
-    return np.where(np.abs(audio) < threshold, 0, audio)
+    audio = audio.copy()
+    audio[np.abs(audio) < threshold] = 0
+    return audio
 
 def preprocess_pipeline(file_path, target_sr=22050, noise_threshold=0.005):
     """Full pre-processing pipeline for the transcription engine."""

@@ -17,7 +17,7 @@ def test_fingerpick_regression(tmp_path):
     result = subprocess.run([
         python_exe, script_path,
         input_wav, output_midi,
-        "--bpm", "100"
+        "--bpm", "100", "--no-merge"
     ], capture_output=True, text=True)
     
     # Check if command succeeded
@@ -47,7 +47,7 @@ def test_fingerpick_stereo_regression(tmp_path):
     result = subprocess.run([
         python_exe, script_path,
         input_wav, output_midi,
-        "--bpm", "100"
+        "--bpm", "100", "--no-merge"
     ], capture_output=True, text=True)
     
     assert result.returncode == 0, f"CLI failed with error: {result.stderr}"
@@ -72,7 +72,7 @@ def test_plektrumpick_regression(tmp_path):
     result = subprocess.run([
         python_exe, script_path,
         input_wav, output_midi,
-        "--bpm", "100"
+        "--bpm", "100", "--no-merge"
     ], capture_output=True, text=True)
     
     assert result.returncode == 0, f"CLI failed with error: {result.stderr}"
@@ -97,7 +97,7 @@ def test_plektrumstrum_regression(tmp_path):
     result = subprocess.run([
         python_exe, script_path,
         input_wav, output_midi,
-        "--bpm", "100"
+        "--bpm", "100", "--no-merge"
     ], capture_output=True, text=True)
     
     assert result.returncode == 0, f"CLI failed with error: {result.stderr}"
