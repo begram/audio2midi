@@ -22,9 +22,15 @@ def high_pass_filter(audio, sr, cutoff=80):
     b, a = butter(1, normal_cutoff, btype='high', analog=False)
     return lfilter(b, a, audio)
 
-def preprocess_pipeline(file_path, target_sr=22050):
+def noise_gate(audio, threshold=0.005):
+    """Zeroes out samples below the absolute amplitude threshold."""
+    return np.where(np.abs(audio) < threshold, 0, audio)
+
+def preprocess_pipeline(file_path, target_sr=22050, noise_threshold=0.005):
     """Full pre-processing pipeline for the transcription engine."""
     audio, sr = load_audio(file_path, target_sr)
     audio = normalize_audio(audio)
     audio = high_pass_filter(audio, sr)
+    if noise_threshold > 0:
+        audio = noise_gate(audio, threshold=noise_threshold)
     return audio, sr

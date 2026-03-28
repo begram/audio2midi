@@ -32,11 +32,15 @@ This tool converts polyphonic acoustic guitar recordings (.wav) into high-fideli
 ## How to Use
 
 Run the tool using the virtual environment's Python interpreter:
+- **Note Filtering:** Remove "phantom notes" by setting minimum duration and velocity thresholds.
+- **String Assignment (Tablature):** Heuristic-based string/fret assignment (E2-E4 standard tuning) to split notes into 6 separate MIDI tracks (Strings 1-6).
+- **Intelligent Note Merging:** Automatically merges re-triggered notes of the same pitch during chords or overlapping melodies.
+- **Configurable Noise Gate:** Filter out low-level background noise before transcription.
 
-`powershell
-.\venv\Scripts\python.exe src\audio2midi.py "input_audio.wav" "output_file.mid" --bpm 120
-`
+---
 
+## Installation
+...
 ### Command Options
 
 | Argument / Option | Description | Example |
@@ -44,15 +48,18 @@ Run the tool using the virtual environment's Python interpreter:
 | input_wav | Path to your source .wav file. | "recording.wav" |
 | output_midi | Path where the .mid file will be saved. | "output.mid" |
 | --bpm | **(Required)** The tempo of the performance. | --bpm 120 |
+| --tab | Enable string/fret assignment (6 MIDI tracks). | --tab |
+| --no-merge | Disable merging of overlapping identical pitches. | --no-merge |
+| --noise-threshold | Amplitude threshold for noise gate (0.0 to 1.0). | --noise-threshold 0.01 |
 | --quantize | Snap notes to a grid (1/4, 1/8, 1/16, 1/32). | --quantize 1/16 |
 | --min-duration | Filter notes shorter than X seconds. | --min-duration 0.05 |
 | --velocity-threshold | Ignore notes quieter than X (0-127). | --velocity-threshold 20 |
 | --instrument | Set the name of the MIDI track. | --instrument "My Guitar" |
 
-### Example with Quantization
-To transcribe a guitar piece at 95 BPM and snap everything to the nearest 1/16th note:
+### Example with Tablature and Merging
+To transcribe a guitar piece at 100 BPM with string assignment and noise filtering:
 `powershell
-.\venv\Scripts\python.exe src\audio2midi.py "blues_riff.wav" "blues_riff.mid" --bpm 95 --quantize 1/16
+.\venv\Scripts\python.exe src\audio2midi.py "solo.wav" "solo.mid" --bpm 100 --tab --noise-threshold 0.01
 `
 
 ---
