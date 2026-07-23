@@ -1,34 +1,61 @@
-# Test Plan - Polyphonic Guitar-to-MIDI Converter
+# Test Plan Specification - Polyphonic Guitar-to-MIDI Enhancements
 
-## Test Strategy
-The testing strategy focuses on validating the audio processing chain, the accuracy of the transcription engine, and the correctness of the MIDI output. We will use a mix of unit tests for logic, integration tests for component interaction, and an accuracy benchmark for the ML model.
+## 1. Test Matrix
 
-## Test Matrix
+The test matrix maps each requirement from `requirements.md` to specific unit, integration, and benchmark test cases.
 
-| ID | Requirement | Test Case | Type |
-|----|-------------|-----------|------|
-| **TR-01** | 16/24-bit .wav support | Load 16-bit and 24-bit files; verify `librosa` reads them without error. | Unit |
-| **TR-02** | BPM Metadata | Generate MIDI with BPM 120; verify the MIDI header reflects 120 BPM. | Unit |
-| **TR-03** | High-Pass Filter | Pass audio with sub-80Hz noise; verify noise reduction in frequency domain. | Unit |
-| **TR-04** | Normalization | Load quiet audio; verify peak amplitude is -1.0 dB post-processing. | Unit |
-| **TR-05** | Note Cleaning | Provide input with <30ms notes; verify they are removed in output. | Unit |
-| **TR-06** | Optional Quantization | Transcribe with 1/16th grid; verify all note onsets align with grid ticks. | Integration |
-| **TR-07** | Polyphony (6 notes) | Process audio of a 6-string chord; verify 6 distinct MIDI notes are generated. | Integration |
-| **TR-08** | Success Metric (90%) | Run benchmark against **GuitarSet**; verify F-measure is >= 0.90. | Benchmark |
-| **TR-09** | CLI Interface | Execute `audio2midi.py` with missing BPM; verify error and help message. | E2E |
+| ID | Requirement | Test Case Description | Test Level | Verification File |
+| :--- | :--- | :--- | :--- | :--- |
+| **TR-01** | FR-01: Frequency Bounding | Pass sine waves outside 80–1400 Hz range; verify pitch events outside bounds are filtered out. | Unit | `tests/test_audio2midi.py` |
+| **TR-02** | FR-01: Threshold Tuning | Pass `--onset-threshold 0.7` to CLI; verify engine config receives setting. | Integration | `tests/test_cli.py` |
+| **TR-03** | FR-02: HPSS Filter | Process audio with simulated pick attack transients; verify transient spikes are separated. | Unit | `tests/test_processor.py` |
+| **TR-04** | FR-03: Log Velocity Mapping | Pass linear amplitudes `[0.1, 0.5, 0.9]`; verify mapped MIDI velocities follow logarithmic curve. | Unit | `tests/test_post_process.py` |
+| **TR-05** | FR-04: Pitch Bend Events | Provide frame pitch bends from model mock; verify `PitchBend` objects are written to MIDI track. | Integration | `tests/test_midi_gen.py` |
+| **TR-06** | FR-05: MPE 6-Channel Output | Enable `--tab`; verify output MIDI contains 6 distinct tracks mapped to MIDI Channels 1–6. | Integration | `tests/test_midi_gen.py` |
+| **TR-07** | FR-06: Viterbi String Solver | Provide sequence of notes (E2 -> G2 -> B2); verify Viterbi solver outputs ergonomic fingering path. | Unit | `tests/test_tab_engine.py` |
+| **TR-08** | FR-06: Chord Collision Guard | Provide simultaneous 3-note chord onset; verify all 3 notes are assigned to 3 unique physical strings. | Unit | `tests/test_tab_engine.py` |
+| **TR-09** | Non-Functional Accuracy | Run accuracy benchmark script against `GuitarSet` clips; verify F-measure $\ge 0.92$. | Benchmark | `tests/test_regression.py` |
 
-## Test Data & Environment
-- **Synthetic Audio:** Pure sine wave chords (C major, G major) to test pitch detection and polyphony in ideal conditions.
-- **Acoustic Samples:** Short recordings of an acoustic guitar (strumming and fingerstyle).
-- **GuitarSet:** A subset of the [GuitarSet dataset](https://guitarset.weebly.com/) for objective accuracy metrics.
-- **Tools:** `pytest` for running tests, `mido` or `pretty_midi` for inspecting output MIDI files.
+---
 
-## Risk-Based Prioritization
-1. **Critical:** Transcription accuracy (TR-08) and Polyphony (TR-07). If these fail, the tool is not useful.
-2. **High:** Timing/BPM (TR-02) and Quantization (TR-06). Essential for musical usability.
-3. **Medium:** Audio pre-processing (TR-03, TR-04).
-4. **Low:** CLI UX and error handling (TR-09).
+## 2. Risk-Based Prioritization
 
-## Mocking Strategy
-- **ML Engine:** For unit tests of the MIDI generator and post-processor, the transcription engine will be mocked to return a predefined list of note events.
-- **File System:** `pytest`'s `tmp_path` will be used to manage temporary audio and MIDI files during testing.
+1. **Critical Risk (Priority 1):**
+   - **Viterbi String Assignment & Chord Collision Guard (TR-07, TR-08):** String collision in chords renders multi-track MIDI unplayable in DAWs.
+   - **Logarithmic Velocity Transformation (TR-04):** Directly impacts musical dynamics and velocity response.
+2. **High Risk (Priority 2):**
+   - **Pitch Bend MIDI Export (TR-05):** Ensures pitch articulation (slides/vibrato) is preserved without corrupting timing.
+   - **Frequency Bounding & HPSS Cleaning (TR-01, TR-03):** Crucial for suppressing phantom note artifacts.
+3. **Medium Risk (Priority 3):**
+   - **MPE Multi-Channel Assignment (TR-06):** Important for DAW compatibility.
+4. **Low Risk (Priority 4):**
+   - **CLI Threshold Arguments (TR-02):** UI/UX convenience.
+
+---
+
+## 3. Test Data & Environment Needs
+
+- **Synthetic Audio Generation:** Python scripts using `scipy.signal` to synthesize pure sine waves, harmonic chords, and pitch-swiped sine waves for exact ground-truth testing.
+- **Acoustic Test Clips:** Existing WAV samples in `tests/` directory (`Fingerpick_mono_44-16.wav`, `plektrumpick_mono_44-16.wav`, `plektrumstrum_mono_44-16.wav`).
+- **Benchmark Corpus:** `GuitarSet` dataset audio and annotated MIDI ground truth files.
+- **Test Runner:** `pytest` executed inside Python 3.10 virtual environment (`.\venv\Scripts\python.exe`).
+
+---
+
+## 4. Coverage Goals per Component
+
+| Component | Target Line Coverage | Target Branch Coverage |
+| :--- | :--- | :--- |
+| [`src/processor.py`](file:///E:/sw_ws/repo1/audio2midi/src/processor.py) | $\ge 95\%$ | $\ge 90\%$ |
+| [`src/post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py) | $\ge 95\%$ | $\ge 95\%$ |
+| [`src/tab_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/tab_engine.py) | $\ge 95\%$ | $\ge 90\%$ |
+| [`src/midi_gen.py`](file:///E:/sw_ws/repo1/audio2midi/src/midi_gen.py) | $\ge 90\%$ | $\ge 85\%$ |
+| [`src/basic_pitch_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/basic_pitch_engine.py) | $\ge 85\%$ | $\ge 80\%$ |
+
+---
+
+## 5. Mocking & Isolation Strategy
+
+To ensure fast unit test execution without loading heavy TensorFlow neural networks on every test run:
+- **`MockTranscriptionEngine`:** Unit tests for `post_process.py`, `tab_engine.py`, and `midi_gen.py` will mock `basic_pitch.inference.predict` using predefined note event dictionaries and pitch-bend arrays.
+- **Integration Tests:** Only `test_regression.py` and full CLI tests will run actual model inference against real WAV audio.

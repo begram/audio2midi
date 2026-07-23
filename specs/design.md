@@ -1,68 +1,102 @@
-# System Design - Polyphonic Guitar-to-MIDI Converter
+# System Design Specification - Polyphonic Guitar-to-MIDI Enhancements
 
-## Architecture Overview
-The system follows a modular, pipe-and-filter architecture. This design ensures that audio processing, transcription, and MIDI generation are decoupled, allowing for easy updates to the ML models or output formatting logic.
+## 1. Architecture Overview & Data Flow
+
+The system architecture expands the pipe-and-filter pipeline with optional pre-processing filters, model configuration hooks, logarithmic velocity transformers, Viterbi tab solving, and pitch-bend MIDI generation.
 
 ```mermaid
 graph TD
-    A[Input .wav] --> B[Audio Processor]
-    B --> C[Transcription Engine Interface]
-    C --> D[Basic Pitch / Omnizart implementation]
-    D --> E[Note Event List]
-    E --> F[Post-Processor / Quantizer]
-    F --> G[MIDI Generator]
-    G --> H[Output .mid]
+    A[Input Audio .wav] --> B[Audio Preprocessor processor.py]
+    subgraph Preprocessing
+        B --> B1[Normalization & 80Hz HPF]
+        B1 --> B2[Optional HPSS Source Separation]
+    end
+    B2 --> C[Basic Pitch Engine basic_pitch_engine.py]
+    subgraph Inference & Extraction
+        C --> C1[Frequency Bounded Inference 80-1400Hz]
+        C1 --> C2[Note Event & Pitch Bend Extraction]
+    end
+    C2 --> D[Post-Processor post_process.py]
+    subgraph Post Processing & Expression
+        D --> D1[Duration & Noise Filtering]
+        D2[Logarithmic Velocity Curve Transformer]
+        D1 --> D2
+        D2 --> D3[Sweep-Line Note Merging & Quantizer]
+    end
+    D3 --> E[Tab Mapper tab_engine.py]
+    subgraph Tablature Solver
+        E --> E1[Viterbi Path Solver for String/Fret]
+        E1 --> E2[Polyphonic Chord Collision Filter]
+    end
+    E2 --> F[MIDI Generator midi_gen.py]
+    subgraph MIDI Output
+        F --> F1[MPE Multi-Channel Assignment Ch 1-6]
+        F1 --> F2[Pitch Bend Event Writer]
+    end
+    F2 --> G[Output .mid File]
 ```
 
-## Component Breakdown
+---
 
-### 1. CLI Controller (`audio2midi.py`)
-- **Responsibility:** Entry point for the user. Parses arguments (input path, output path, BPM, quantization grid, thresholds).
-- **Workflow Orchestration:** Manages the sequential flow of data between components and provides feedback via a progress bar.
+## 2. Component Design & Enhancements
 
-### 2. Audio Processor (`processor.py`)
-- **Library:** `librosa` and `scipy.signal`.
-- **Functionality:**
-    - Loads 16/24-bit .wav files.
-    - **Normalization:** Peak normalization to -1.0 dB.
-    - **High-Pass Filter:** Butterworth filter (80Hz cutoff) to remove subsonic rumble.
-    - **Resampling:** Ensures audio matches the sample rate expected by the ML model (usually 22.05kHz or 44.1kHz).
+### 2.1 Audio Preprocessor ([`src/processor.py`](file:///E:/sw_ws/repo1/audio2midi/src/processor.py))
+- **`hpss_filter(audio, sr)`**: Uses `librosa.effects.hpss` to separate harmonic audio from percussive clicks.
+- **`apply_spectral_denoise(audio, sr)`**: Smooth noise suppression preserving natural note decay tails.
 
-### 3. Transcription Engine Interface (`engine_base.py`)
-- **Abstract Base Class:** Defines the `transcribe(audio_data)` method.
-- **Implementation (Primary):** `BasicPitchEngine` utilizing Spotify's `basic-pitch` library. It returns a list of "Note Events" (pitch, start_time, end_time, amplitude).
+### 2.2 ML Engine ([`src/basic_pitch_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/basic_pitch_engine.py))
+- Extends `transcribe()` to accept `min_freq=80.0`, `max_freq=1400.0`, `onset_threshold`, `frame_threshold`, `min_note_len`.
+- Extracts pitch bend frames returned by `predict()` and converts them into time-stamped MIDI pitch bend tuples `(time_sec, bend_value)` scaled to semi-tone ranges.
 
-### 4. Post-Processor & Quantizer (`post_process.py`)
-- **Note Cleaning:** Filters notes based on minimum duration (e.g., < 30ms) and velocity thresholds.
-- **Quantization Logic:** 
-    - Converts seconds to "ticks" based on the provided BPM.
-    - Snaps onset and offset ticks to the nearest grid line (e.g., 1/16th note).
+### 2.3 Post-Processor ([`src/post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py))
+- **`apply_logarithmic_velocity(notes, curvature=5.0)`**: Maps linear model amplitude $a \in [0, 1]$ to MIDI velocity $V \in [1, 127]$:
+  $$V = \text{round}\left(127 \times \frac{\ln(1 + k \cdot a)}{\ln(1 + k)}\right)$$
+- **`quantize_notes(notes, bpm, grid_resolution, strength=1.0)`**: Applies partial quantization strength interpolation:
+  $$t_{\text{final}} = t_{\text{original}} + \text{strength} \times (t_{\text{quantized}} - t_{\text{original}})$$
 
-### 5. MIDI Generator (`midi_gen.py`)
-- **Library:** `pretty_midi` (preferred for its high-level handling of velocity and timing).
-- **Output:** Creates a Standard MIDI File (SMF Type 0 or 1) with correct BPM meta-events and track names.
+### 2.4 Tablature Engine ([`src/tab_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/tab_engine.py))
+- **`ViterbiTabSolver`**:
+  - State space $S$: Valid `(string, fret)` pairs for pitch $P$.
+  - Transition Cost $C(s_i, s_{i+1})$: $w_{\text{fret}} \cdot |f_{i+1} - f_i| + w_{\text{string}} \cdot |s_{i+1} - s_i| + w_{\text{open}} \cdot \mathbb{I}(f=0)$.
+  - Time complexity: $O(N \cdot K^2)$ where $N$ is note count and $K \le 5$ string placement candidates per pitch.
+- **Chord Collision Guard**: Enforces that for notes with $|t_{\text{onset}, A} - t_{\text{onset}, B}| < 15\text{ms}$, $s_A \neq s_B$.
 
-## Technology Stack
-- **Language:** Python 3.9+
-- **Deep Learning Framework:** TensorFlow (required by `basic-pitch`).
-- **Audio Processing:** `librosa`, `pydub` (for bit-depth handling), `numpy`.
-- **MIDI Manipulation:** `pretty_midi`.
-- **CLI Framework:** `click` or `argparse`.
-- **Testing:** `pytest`.
+### 2.5 MIDI Generator ([`src/midi_gen.py`](file:///E:/sw_ws/repo1/audio2midi/src/midi_gen.py))
+- Configures 6 MIDI channels (Channels 1–6 for Strings 1–6) when MPE/tab mode is enabled.
+- Writes note events and pitch bend events per channel using `pretty_midi`.
 
-## Performance & Optimization
-- **Compute:** Transcription is the primary bottleneck. GPU acceleration will be utilized if `tensorflow-gpu` is available.
-- **Memory:** Large files will be processed in chunks if the engine supports it, or the system will warn about high RAM usage for files over 10 minutes.
-- **Complexity:** 
-    - Audio Pre-processing: O(N) where N is number of samples.
-    - Transcription: O(N * model_complexity).
-    - Quantization: O(M) where M is number of detected notes.
+---
 
-## Test Strategy
-- **Unit Tests:** Validate audio loading, quantization logic, and MIDI generation independently.
-- **Integration Tests:** End-to-end transcription of short (5-10s) clips.
-- **Accuracy Benchmark:** A script to compare generated MIDI against `GuitarSet` ground truth and calculate F-measure (Precision/Recall).
+## 3. Technology Stack & Infrastructure
 
-## Security Considerations
-- **File Sanitization:** Ensure input paths are valid and do not allow for path traversal attacks.
-- **Library Security:** Use pinned versions of dependencies to avoid supply chain vulnerabilities.
+- **Language:** Python 3.10.x
+- **Pre-processing:** `librosa` (0.10+), `scipy.signal`, `numpy` (<2.0.0)
+- **ML Engine:** `basic-pitch` (Spotify), `tensorflow` (2.7+)
+- **MIDI Output:** `pretty_midi`, `mido`
+- **CLI Framework:** `click`
+- **Testing & Benchmarking:** `pytest`, `pytest-mock`
+
+---
+
+## 4. Performance & Complexity Analysis
+
+| Operation | Complexity | Expected Bottleneck | Optimization Strategy |
+| :--- | :--- | :--- | :--- |
+| **Audio HPSS** | $O(N \log N)$ FFT | Moderate CPU compute | Optional flag `--hpss`; process in STFT frame blocks |
+| **Basic Pitch Inference** | $O(N)$ DNN Forward Pass | Primary Compute Bottleneck | Restrict frequency bounds; batch model execution |
+| **Viterbi String Solver** | $O(N \cdot K^2)$ ($K \le 5$) | Very Low (< 10ms for 1000 notes) | Pre-computed pitch-to-(string,fret) LUT |
+| **Log Velocity Mapping** | $O(N)$ | Negligible | Vectorized NumPy array operations |
+| **MIDI Generation** | $O(N)$ | Negligible | Stream writing via `pretty_midi` |
+
+---
+
+## 5. Test Strategy & Isolation
+
+- **Unit Testing (Isolated):**
+  - [`processor.py`](file:///E:/sw_ws/repo1/audio2midi/src/processor.py): HPSS filter response, high-pass frequency cutoff validation.
+  - [`post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py): Velocity curve mathematical mapping, partial quantization interpolation.
+  - [`tab_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/tab_engine.py): Viterbi path cost optimization, chord string collision guard.
+- **Integration Testing (Component Mocking):**
+  - Mock `basic-pitch` output using synthesized synthetic note tuples to verify post-processing and MIDI generation end-to-end without running ML inference during fast unit test runs.
+- **End-to-End & Benchmark Testing:**
+  - Full transcription pipeline run against `GuitarSet` clips, evaluating F-measure against ground truth.

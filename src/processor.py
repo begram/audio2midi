@@ -28,11 +28,21 @@ def noise_gate(audio, threshold=0.005):
     audio[np.abs(audio) < threshold] = 0
     return audio
 
-def preprocess_pipeline(file_path, target_sr=22050, noise_threshold=0.005):
+def hpss_filter(audio, margin=1.0):
+    """
+    Applies Harmonic-Percussive Source Separation (HPSS) to extract
+    the harmonic component of the audio, filtering out percussive attack transients.
+    """
+    harmonic, _ = librosa.effects.hpss(audio, margin=margin)
+    return harmonic
+
+def preprocess_pipeline(file_path, target_sr=22050, noise_threshold=0.005, use_hpss=False):
     """Full pre-processing pipeline for the transcription engine."""
     audio, sr = load_audio(file_path, target_sr)
     audio = normalize_audio(audio)
     audio = high_pass_filter(audio, sr)
+    if use_hpss:
+        audio = hpss_filter(audio)
     if noise_threshold > 0:
         audio = noise_gate(audio, threshold=noise_threshold)
     return audio, sr

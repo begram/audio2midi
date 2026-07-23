@@ -8,6 +8,25 @@ def clean_notes(notes, min_duration=0.030, velocity_threshold=10):
     ]
     return cleaned
 
+def apply_logarithmic_velocity(notes, curvature=5.0):
+    """
+    Applies a logarithmic perceptual dynamic velocity mapping:
+    V_out = round(127 * ln(1 + k * a) / ln(1 + k)) where a = V_in / 127.
+    """
+    if not notes or curvature <= 0:
+        return notes
+
+    denom = np.log(1.0 + curvature)
+    for n in notes:
+        v_in = float(n['velocity'])
+        if v_in <= 0:
+            continue
+        a = v_in / 127.0
+        v_out = int(np.round(127.0 * (np.log(1.0 + curvature * a) / denom)))
+        n['velocity'] = int(np.clip(v_out, 1, 127))
+
+    return notes
+
 def merge_notes(notes):
     """
     Optimized O(N log N) note merging using a sorted event list (sweep-line).
@@ -15,18 +34,14 @@ def merge_notes(notes):
     if not notes:
         return []
 
-    # Sort for overall active note tracking
     sorted_by_start = sorted(notes, key=lambda x: x['start'])
 
-    # Pre-calculate active note counts for all merge candidates
-    # We use a sweep-line to know if "any other pitch" is active at any time T
     events = []
     for i, n in enumerate(notes):
         events.append((n['start'], 1, n['pitch'])) # 1 for start
         events.append((n['end'], -1, n['pitch']))  # -1 for end
     events.sort()
 
-    # Group by pitch for merging
     by_pitch = {}
     for n in notes:
         p = n['pitch']
@@ -43,13 +58,10 @@ def merge_notes(notes):
             nxt = p_notes[i]
 
             if nxt['start'] <= (current['end'] + 0.050):
-                # Efficiently check for other active pitches:
-                # Is there any note where other.pitch != pitch AND other.start <= nxt.start < other.end?
-                # For optimization, we only check neighbors in time
                 is_other_active = any(
                     n['pitch'] != pitch and n['start'] <= nxt['start'] < n['end']
                     for n in sorted_by_start 
-                    if nxt['start'] - 2.0 < n['start'] < nxt['start'] + 0.1 # Scoped search
+                    if nxt['start'] - 2.0 < n['start'] < nxt['start'] + 0.1
                 )
 
                 if is_other_active:
@@ -64,8 +76,8 @@ def merge_notes(notes):
     merged_all.sort(key=lambda x: x['start'])
     return merged_all
 
-def quantize_notes(notes, bpm, grid_resolution='1/16'):
-    """Vectorized quantization using NumPy."""
+def quantize_notes(notes, bpm, grid_resolution='1/16', strength=1.0):
+    """Vectorized quantization using NumPy with optional partial strength."""
     if not notes:
         return []
 
@@ -82,15 +94,21 @@ def quantize_notes(notes, bpm, grid_resolution='1/16'):
     onset_ticks = (onsets / seconds_per_quarter) * ticks_per_quarter
     offset_ticks = (offsets / seconds_per_quarter) * ticks_per_quarter
 
-    q_onsets = (np.round(onset_ticks / grid_ticks) * grid_ticks).astype(int)
-    q_offsets = (np.round(offset_ticks / grid_ticks) * grid_ticks).astype(int)
+    q_onsets = np.round(onset_ticks / grid_ticks) * grid_ticks
+    q_offsets = np.round(offset_ticks / grid_ticks) * grid_ticks
 
-    # Fix zero-duration notes
-    mask = q_offsets <= q_onsets
-    q_offsets[mask] = q_onsets[mask] + grid_ticks
+    if strength < 1.0:
+        eff_onsets = np.round(onset_ticks + strength * (q_onsets - onset_ticks)).astype(int)
+        eff_offsets = np.round(offset_ticks + strength * (q_offsets - offset_ticks)).astype(int)
+    else:
+        eff_onsets = q_onsets.astype(int)
+        eff_offsets = q_offsets.astype(int)
+
+    mask = eff_offsets <= eff_onsets
+    eff_offsets[mask] = eff_onsets[mask] + grid_ticks
 
     for i, n in enumerate(notes):
-        n['start_ticks'] = int(q_onsets[i])
-        n['end_ticks'] = int(q_offsets[i])
+        n['start_ticks'] = int(eff_onsets[i])
+        n['end_ticks'] = int(eff_offsets[i])
 
     return notes
