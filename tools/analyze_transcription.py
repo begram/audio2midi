@@ -3,8 +3,8 @@
 No ground-truth annotations exist for the fixtures in `tests/`, so nothing here is
 an accuracy measurement. Every metric is either
 
-* a *plausibility* check -- a pattern that is known to indicate a transcription
-  error (octave doubling, engine chatter, out-of-range pitch, string collision), or
+* a *plausibility* check -- a pattern that indicates a transcription error (engine
+  chatter, out-of-range pitch, string collision, more than six simultaneous voices), or
 * a *self-consistency* score against features derived from the source audio
   (onset agreement, chroma agreement).
 
@@ -71,9 +71,12 @@ CHORD_WINDOW = 0.015
 ONSET_TOLERANCE = 0.05
 # A note this short is more likely a detection artefact than a plucked string.
 SHORT_NOTE_SECONDS = 0.05
-# Octave partners are only suspicious when they start together; a genuine octave
-# played later in a phrase is ordinary music.
-OCTAVE_ONSET_WINDOW = 0.03
+# Notes this close together belong to one playing event: a strummed chord is spread
+# over more than a chord frame as the pick crosses the strings.
+EVENT_WINDOW = 0.08
+# How much weaker than its fundamental an octave note must be to look like a harmonic
+# artefact rather than a voiced octave.
+WEAK_OCTAVE_RATIO = 0.5
 
 # Preprocessing / engine settings. Changing any of these requires re-running
 # inference, which is the expensive part, so results are cached on disk.
@@ -138,23 +141,52 @@ def post_process(notes, bpm, merge=True, quantize=None):
 # plausibility metrics
 # --------------------------------------------------------------------------------------
 
-def octave_doubling_rate(notes):
-    """Fraction of notes that start alongside a partner exactly 12 semitones away.
+def group_events(notes):
+    """Groups notes into playing events. A strum is spread over more than a chord frame."""
+    if not notes:
+        return []
+    ordered = sorted(notes, key=lambda n: n["start"])
+    events = [[ordered[0]]]
+    for note in ordered[1:]:
+        if note["start"] - events[-1][-1]["start"] < EVENT_WINDOW:
+            events[-1].append(note)
+        else:
+            events.append([note])
+    return events
 
-    Basic Pitch's most common failure on plucked strings: the model reports both the
-    fundamental and a harmonic as separate notes.
+
+def weak_octave_rate(notes):
+    """Fraction of notes that sit an octave above a *much stronger* note in their event.
+
+    Counting octave pairs outright does not work: guitar voicings contain octaves by
+    construction -- an open C major is E2-C3-E3-G3-C4-E4, three octave pairs in six
+    notes -- so a plain octave count flags correct chords as errors. It measured 45% on
+    the strummed fixture, whose events resolve to ordinary C/F/G voicings with the two
+    members at comparable velocity (median ratio 0.84) and simultaneous onsets.
+
+    Requiring the upper note to be markedly weaker keeps the case that a real voicing
+    does not produce: a harmonic reported as its own note. Still a lead rather than
+    proof -- an intentionally light octave doubling looks the same.
     """
     if not notes:
         return 0.0
-    ordered = sorted(notes, key=lambda n: n["start"])
-    starts = [n["start"] for n in ordered]
     flagged = 0
-    for i, note in enumerate(ordered):
-        lo = np.searchsorted(starts, note["start"] - OCTAVE_ONSET_WINDOW, side="left")
-        hi = np.searchsorted(starts, note["start"] + OCTAVE_ONSET_WINDOW, side="right")
-        if any(abs(ordered[j]["pitch"] - note["pitch"]) == 12 for j in range(lo, hi) if j != i):
-            flagged += 1
+    for event in group_events(notes):
+        by_pitch = {n["pitch"]: n for n in event}
+        for note in event:
+            lower = by_pitch.get(note["pitch"] - 12)
+            if lower is not None and note["velocity"] < WEAK_OCTAVE_RATIO * lower["velocity"]:
+                flagged += 1
     return flagged / len(notes)
+
+
+def oversized_events(notes):
+    """Events with more than six simultaneous notes, which no six-string guitar can play.
+
+    Unlike the octave heuristics this needs no interpretation: at least one note in such
+    an event is spurious.
+    """
+    return sum(1 for event in group_events(notes) if len(event) > 6)
 
 
 def chatter_rate(notes, gap=0.05):
@@ -348,7 +380,8 @@ def analyze(wav_path, engine_name, post_name, bpm, reference, use_cache):
         "post_preset": post_name,
         "raw_notes": len(raw_notes),
         "notes": len(notes),
-        "octave_doubling": octave_doubling_rate(notes),
+        "weak_octave": weak_octave_rate(notes),
+        "oversized_events": oversized_events(notes),
         "chatter": chatter_rate(notes),
         "short_notes": sum(d < SHORT_NOTE_SECONDS for d in durations) / len(durations),
         "out_of_range": sum(
@@ -407,7 +440,7 @@ def main():
     print(f"\n[+] {len(frame)} rows written to {out_path}\n")
 
     summary_cols = [
-        "notes", "octave_doubling", "chatter", "short_notes", "min_duration", "unassigned",
+        "notes", "weak_octave", "oversized_events", "chatter", "min_duration", "unassigned",
         "onset_f", "onset_precision", "onset_recall", "chroma_agreement", "tab_collisions",
     ]
     print("Mean across fixtures, by engine preset:")
