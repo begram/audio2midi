@@ -34,6 +34,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Dev toolchain: `.\venv\Scripts\pip install -r requirements-dev.txt`.
 
+```powershell
+# Transcription quality analysis: sweeps presets over the fixtures, writes analysis/metrics.csv
+.\venv\Scripts\python.exe tools\analyze_transcription.py
+.\venv\Scripts\python.exe tools\analyze_transcription.py --fixtures Fingerpick_mono_44-16.wav
+```
+
+`tools/analyze_transcription.py` caches raw engine output under `analysis/cache/`, so only
+preprocessing/engine preset changes pay for inference; post-processing presets re-sweep for free.
+Its metrics are plausibility and self-consistency scores, **not** accuracy — there are no ground-truth
+annotations for the fixtures, so the numbers only rank configurations against each other. Real
+precision/recall needs annotated data (GuitarSet, which also carries the per-string labels required
+to score `tab_engine`). All of `analysis/` is generated and gitignored.
+
 ## Architecture
 
 Pipe-and-filter. `src/audio2midi.py` (Click CLI) is the only orchestrator; every other module is a
