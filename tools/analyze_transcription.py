@@ -325,15 +325,18 @@ def analyze(wav_path, engine_name, post_name, bpm, reference, use_cache):
     post_params = POST_PRESETS[post_name]
 
     raw_notes = transcribe_cached(wav_path, engine_params, use_cache=use_cache)
-    notes = post_process(raw_notes, bpm, **post_params)
+    post_notes = post_process(raw_notes, bpm, **post_params)
 
-    # String assignment does not alter pitch or timing, so it is measured on the same
-    # note list rather than as another combination.
-    tabbed = TabMapper().assign_strings([dict(n) for n in notes])
+    # Every metric is computed on this list, which is also what the MIDI is written from.
+    # String assignment is not a free annotation pass: resolving same-string overlaps
+    # shortens notes and can withdraw an assignment, so measuring the pre-tab list would
+    # describe a different file than the one on disk. This means the harness reports the
+    # `--tab` pipeline, not the CLI default.
+    notes = TabMapper().assign_strings([dict(n) for n in post_notes])
 
     MIDI_DIR.mkdir(parents=True, exist_ok=True)
     midi_path = MIDI_DIR / f"{wav_path.stem}__{engine_name}__{post_name}.mid"
-    generate_midi(tabbed, bpm, str(midi_path))
+    generate_midi(notes, bpm, str(midi_path))
 
     peak_poly, mean_poly = polyphony_stats(notes)
     durations = [n["end"] - n["start"] for n in notes] or [0.0]
@@ -352,12 +355,16 @@ def analyze(wav_path, engine_name, post_name, bpm, reference, use_cache):
             p < GUITAR_MIN_PITCH or p > GUITAR_MAX_PITCH for p in pitches
         ) / len(pitches),
         "median_duration": float(np.median(durations)),
+        # Overlap resolution shortens notes, so the floor is tracked explicitly: a note
+        # cut to a few milliseconds is a click, and averages hide it.
+        "min_duration": float(min(durations)),
+        "unassigned": sum(1 for n in notes if n.get("string", 0) == 0),
         "peak_polyphony": peak_poly,
         "mean_polyphony": mean_poly,
     }
     row.update(onset_agreement(notes, reference))
     row["chroma_agreement"] = chroma_agreement(midi_path, reference)
-    row.update(tab_metrics(tabbed))
+    row.update(tab_metrics(notes))
     return row
 
 
@@ -400,7 +407,7 @@ def main():
     print(f"\n[+] {len(frame)} rows written to {out_path}\n")
 
     summary_cols = [
-        "notes", "octave_doubling", "chatter", "short_notes",
+        "notes", "octave_doubling", "chatter", "short_notes", "min_duration", "unassigned",
         "onset_f", "onset_precision", "onset_recall", "chroma_agreement", "tab_collisions",
     ]
     print("Mean across fixtures, by engine preset:")

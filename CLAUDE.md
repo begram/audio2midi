@@ -96,6 +96,16 @@ These are load-bearing; reordering silently corrupts output:
 - **Emission cost is applied at every Viterbi frame** in `tab_engine`, not just frame 0; otherwise
   absolute neck position is anchored only at the start and the preference decays away.
   `max_candidates` caps the Cartesian product so a dense strum can't blow up the `|prev|×|curr|` step.
+- **`_resolve_string_overlaps` runs after the solver, not inside it.** The candidate guard only
+  prevents collisions within one 15 ms chord frame; the Viterbi state is a single frame, so a sustain
+  spanning frames is invisible to it, and making it sustain-aware would mean carrying the set of
+  ringing strings in the state space. A later pluck therefore truncates the earlier note — which is
+  what a real string does. Conflicts closer than `MIN_REPLUCK_SECONDS` are not re-plucks, so there
+  the note keeps its full length and gives up its string instead, routing to the unassigned track;
+  truncating those would emit millisecond clicks.
+
+  The invariant to preserve: **no two simultaneous notes may share a string.** Violating it also
+  breaks the per-string channel design, since one channel's bend would apply to both notes.
 
 ### Two independent duration gates
 

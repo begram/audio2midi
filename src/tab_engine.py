@@ -2,6 +2,12 @@ import itertools
 
 import numpy as np
 
+# Shortest gap between two onsets that can be a genuine re-pluck of one string. Even
+# tremolo picking does not repeat a string faster than this, so a closer pair is two
+# voices the solver could not separate, not one string played twice. Matches
+# MERGE_GAP_SECONDS in post_process, which treats the same span as indistinguishable.
+MIN_REPLUCK_SECONDS = 0.050
+
 
 class TabMapper:
     """
@@ -108,7 +114,60 @@ class TabMapper:
                 note['string'] = string
                 note['fret'] = fret
 
-        return sorted_notes
+        return self._resolve_string_overlaps(sorted_notes)
+
+    @staticmethod
+    def _resolve_string_overlaps(notes):
+        """Shortens a note when a later note is plucked on the same string.
+
+        The candidate guard in `_generate_frame_candidates` only prevents collisions
+        *within* one 15ms chord frame. A note sustaining across frames can still be
+        followed by another note assigned to its own string, which is physically
+        impossible: a string sounds one note at a time, and the new pluck stops the
+        old one. Left in place the overlap also defeats the per-string channel layout
+        in `midi_gen`, since one channel's pitch bend would apply to both notes.
+
+        Truncating rather than reassigning is deliberate -- the Viterbi state is a
+        single frame, so the solver cannot see a sustain spanning frames, and making
+        it sustain-aware would mean carrying which strings are still ringing in the
+        state space.
+        """
+        by_string = {}
+        for note in notes:
+            if note.get('string', 0) > 0:
+                by_string.setdefault(note['string'], []).append(note)
+
+        for string_notes in by_string.values():
+            string_notes.sort(key=lambda n: n['start'])
+            # Pairwise over adjacent notes is sufficient: the list is start-sorted and
+            # notes are only ever shortened, so resolving each pair cannot reintroduce
+            # an overlap with a later one.
+            for prev, nxt in zip(string_notes, string_notes[1:], strict=False):
+                if nxt['start'] >= prev['end']:
+                    continue
+
+                if nxt['start'] - prev['start'] < MIN_REPLUCK_SECONDS:
+                    # Too close together to be a re-pluck of the same string, so there is
+                    # no earlier note to stop and truncating would leave an unplayable
+                    # sliver (or, at an identical onset, a zero-length note). These are
+                    # near-simultaneous unplaceable voices -- more than six at once, or
+                    # duplicate detections `merge_notes` did not remove. The note keeps
+                    # its pitch, velocity and length but gives up the string, which routes
+                    # it to the unassigned track in `midi_gen` instead of colliding on a
+                    # per-string channel.
+                    prev['string'] = 0
+                    prev['fret'] = -1
+                    continue
+
+                prev['end'] = nxt['start']
+                # Bends past the new end would land after the recentre event generate_midi
+                # writes at note end, so the bend would bleed into the next note.
+                if prev.get('pitch_bends'):
+                    prev['pitch_bends'] = [
+                        b for b in prev['pitch_bends'] if b['time'] <= prev['end']
+                    ]
+
+        return notes
 
     def _generate_frame_candidates(self, frame):
         """Generates valid candidate assignments for a chord frame ensuring no string collisions."""
