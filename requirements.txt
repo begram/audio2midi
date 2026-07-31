@@ -10,6 +10,9 @@ librosa>=0.9.0
 pydub>=0.25.1
 scipy>=1.7.0
 numpy<2.0.0
+# Imported directly by basic_pitch_engine to hand the engine a temp WAV. It also arrives
+# as a librosa dependency, but relying on that is fragile.
+soundfile>=0.10.0
 
 # MIDI Manipulation
 pretty_midi>=0.2.9

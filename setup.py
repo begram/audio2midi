@@ -22,6 +22,9 @@ setup(
         "librosa>=0.9.0",
         "pydub>=0.25.1",
         "scipy>=1.7.0",
+        # basic_pitch_engine imports soundfile directly; librosa happens to pull it in
+        # too, but that is not a contract.
+        "soundfile>=0.10.0",
         "numpy<2.0.0",
         "pretty_midi>=0.2.9",
         "mido>=1.2.10",
@@ -33,6 +36,9 @@ setup(
             "pytest-mock>=3.7.0",
             "pytest-cov>=4.0.0",
             "ruff>=0.0.260",
+            # Used by the analysis tooling in tools/.
+            "mir_eval>=0.7",
+            "pandas>=1.3.0",
         ],
     },
     entry_points={

@@ -40,6 +40,20 @@ Dev toolchain: `.\venv\Scripts\pip install -r requirements-dev.txt`.
 .\venv\Scripts\python.exe tools\analyze_transcription.py --fixtures Fingerpick_mono_44-16.wav
 ```
 
+```powershell
+# Ground-truth accuracy against GuitarSet, writes analysis/guitarset.csv
+.\venv\Scripts\python.exe tools\evaluate_guitarset.py --limit 20
+```
+
+`tools/evaluate_guitarset.py` is the only thing here that measures **accuracy**. It needs the
+corpus in place (~664 MB, both archives from https://zenodo.org/records/3371780, extracted to
+`data/guitarset/annotation/` and `data/guitarset/audio_mono-mic/`; `data/` is gitignored).
+GuitarSet was recorded with a hexaphonic pickup, so it is also the only way to score
+`tab_engine` — plain audio carries no signal saying which string was played. Metrics follow
+MIREX conventions via `mir_eval` (50 ms onset window, 50 cent pitch tolerance). Note the
+annotation `data_source` runs 0 (low E) to 5 (high e), the opposite of `tab_engine`'s 6-to-1
+numbering, and reference pitches are continuous f0 estimates rather than integers.
+
 `tools/analyze_transcription.py` caches raw engine output under `analysis/cache/`, so only
 preprocessing/engine preset changes pay for inference; post-processing presets re-sweep for free.
 Its metrics are plausibility and self-consistency scores, **not** accuracy — there are no ground-truth
