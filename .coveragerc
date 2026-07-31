@@ -1,0 +1,13 @@
+[run]
+source = src
+branch = True
+
+[report]
+show_missing = True
+# The suite currently sits at ~99%; this gate leaves headroom without letting
+# coverage silently rot.
+fail_under = 95
+exclude_also =
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    raise NotImplementedError

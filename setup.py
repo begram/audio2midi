@@ -1,10 +1,21 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name="audio2midi",
     version="0.1.0",
-    packages=find_packages(where="src"),
+    # src/ holds flat top-level modules, not a package, so find_packages(where="src")
+    # returns an empty list and installs no code at all.
     package_dir={"": "src"},
+    py_modules=[
+        "audio2midi",
+        "processor",
+        "basic_pitch_engine",
+        "engine_base",
+        "post_process",
+        "midi_gen",
+        "tab_engine",
+    ],
+    python_requires=">=3.10,<3.11",
     install_requires=[
         "basic-pitch>=0.2.0",
         "tensorflow>=2.7.0",
@@ -15,10 +26,14 @@ setup(
         "pretty_midi>=0.2.9",
         "mido>=1.2.10",
         "click>=8.0.0",
-        "tqdm>=4.64.0",
     ],
     extras_require={
-        "dev": ["pytest", "pytest-mock", "ruff"],
+        "dev": [
+            "pytest>=7.0.0",
+            "pytest-mock>=3.7.0",
+            "pytest-cov>=4.0.0",
+            "ruff>=0.0.260",
+        ],
     },
     entry_points={
         "console_scripts": [

@@ -1,3 +1,5 @@
+# Runtime dependencies. For the test/lint toolchain see requirements-dev.txt.
+
 # Core Transcription Engine
 basic-pitch>=0.2.0
 tensorflow>=2.7.0; platform_system != "Darwin" or platform_machine != "arm64"
@@ -15,9 +17,3 @@ mido>=1.2.10
 
 # CLI & UX
 click>=8.0.0
-tqdm>=4.64.0
-
-# Testing & Dev
-pytest>=7.0.0
-pytest-mock>=3.7.0
- ruff>=0.0.260

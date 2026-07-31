@@ -1,17 +1,64 @@
-import pytest
-import numpy as np
 import os
-import pretty_midi
-from processor import normalize_audio, high_pass_filter, noise_gate
-from post_process import clean_notes, quantize_notes, merge_notes
-from midi_gen import generate_midi
 
-def test_noise_gate():
-    """Test that samples below the threshold are zeroed out."""
+import numpy as np
+import pretty_midi
+import pytest
+
+from midi_gen import generate_midi
+from post_process import clean_notes, merge_notes, quantize_notes
+from processor import high_pass_filter, noise_gate, normalize_audio
+
+
+def test_noise_gate_silences_quiet_passages():
+    """The gate attenuates passages whose RMS falls below the threshold."""
+    sr = 22050
+    t = np.linspace(0, 1.0, sr, endpoint=False)
+    signal = (0.5 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
+    signal[sr // 2:] *= 0.0005  # second half well below the threshold
+
+    gated = noise_gate(signal, threshold=0.01)
+
+    loud_rms = np.sqrt(np.mean(gated[: sr // 4] ** 2))
+    quiet_rms = np.sqrt(np.mean(gated[-sr // 4:] ** 2))
+    assert loud_rms > 0.3
+    assert quiet_rms < 1e-4
+
+
+def test_noise_gate_does_not_clip_waveform():
+    """A passage the gate lets through must pass without sample-wise zeroing.
+
+    Zeroing individual samples clips the waveform at every zero crossing; the
+    resulting discontinuities are what generate phantom notes downstream.
+    """
+    sr = 22050
+    t = np.linspace(0, 0.5, int(sr * 0.5), endpoint=False)
+    tone = (0.5 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
+
+    gated = noise_gate(tone, threshold=0.01)
+
+    # The tone has its own exact-zero samples; the gate must not add any.
+    assert np.sum(np.abs(gated) < 1e-6) == np.sum(np.abs(tone) < 1e-6)
+    # The passage is above threshold, so it should survive essentially intact.
+    assert np.corrcoef(tone, gated)[0, 1] > 0.999
+
+
+def test_noise_gate_preserves_leading_attack():
+    """Envelope smoothing must not fade in the start of the file."""
+    sr = 22050
+    t = np.linspace(0, 0.5, int(sr * 0.5), endpoint=False)
+    tone = (0.5 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
+
+    gated = noise_gate(tone, threshold=0.01)
+
+    head_rms = np.sqrt(np.mean(gated[:512] ** 2))
+    body_rms = np.sqrt(np.mean(gated[sr // 8: sr // 8 + 512] ** 2))
+    assert head_rms == pytest.approx(body_rms, rel=0.05)
+
+
+def test_noise_gate_disabled():
+    """A threshold of 0.0 passes audio through untouched."""
     audio = np.array([0.001, 0.01, -0.002, -0.05], dtype=np.float32)
-    gated = noise_gate(audio, threshold=0.005)
-    expected = np.array([0.0, 0.01, 0.0, -0.05], dtype=np.float32)
-    np.testing.assert_array_equal(gated, expected)
+    np.testing.assert_array_equal(noise_gate(audio, threshold=0.0), audio)
 
 def test_merge_notes():
     """Test that overlapping notes of the same pitch are merged ONLY if another pitch is active."""
@@ -49,7 +96,7 @@ def test_normalize_audio():
 def test_clean_notes():
     """Test filtering of short and quiet notes."""
     notes = [
-        {'pitch': 60, 'start': 0.0, 'end': 0.1, 'velocity': 100}, 
+        {'pitch': 60, 'start': 0.0, 'end': 0.1, 'velocity': 100},
         {'pitch': 62, 'start': 0.2, 'end': 0.21, 'velocity': 100},
         {'pitch': 64, 'start': 0.4, 'end': 0.5, 'velocity': 5}
     ]
@@ -71,7 +118,7 @@ def test_midi_generation(tmp_path):
     midi_path = os.path.join(tmp_path, "test.mid")
     notes = [{'pitch': 60, 'start': 0.0, 'end': 1.0, 'velocity': 100}]
     generate_midi(notes, bpm=140, output_path=midi_path)
-    
+
     pm = pretty_midi.PrettyMIDI(midi_path)
     assert len(pm.instruments) == 1
     # Use approx with larger tolerance

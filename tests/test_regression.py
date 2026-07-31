@@ -1,111 +1,45 @@
-import subprocess
-import pytest
 import os
+import subprocess
+
 import pretty_midi
+import pytest
 
-def test_fingerpick_regression(tmp_path):
-    """Regression test for Fingerpick_mono_44-16.wav at 100 BPM."""
-    input_wav = "tests/Fingerpick_mono_44-16.wav"
-    output_midi = os.path.join(tmp_path, "Fingerpick_mono_44-16_regression.mid")
-    python_exe = r"E:\sw_ws\repo1\audio2midi\venv\Scripts\python.exe"
-    script_path = r"E:\sw_ws\repo1\audio2midi\src\audio2midi.py"
-    
-    # Ensure input file exists (it should, based on previous exploration)
-    assert os.path.exists(input_wav), f"Input file {input_wav} not found."
+# (fixture wav, expected note count, tolerance band)
+REGRESSION_CASES = [
+    ("Fingerpick_mono_44-16.wav", 143, (130, 160)),
+    ("Fingerpick_stereo_48-24.wav", 143, (130, 160)),
+    ("plektrumpick_mono_44-16.wav", 156, (145, 170)),
+    ("plektrumstrum_mono_44-16.wav", 220, (210, 240)),
+]
 
-    # Run the transcription
-    result = subprocess.run([
-        python_exe, script_path,
-        input_wav, output_midi,
-        "--bpm", "100", "--no-merge"
-    ], capture_output=True, text=True)
-    
-    # Check if command succeeded
+
+@pytest.mark.slow
+@pytest.mark.parametrize("wav_name,expected,band", REGRESSION_CASES)
+def test_transcription_regression(
+    wav_name, expected, band, tmp_path, python_exe, cli_script, fixture_wav
+):
+    """End-to-end note-count regression at 100 BPM for each reference recording."""
+    input_wav = fixture_wav(wav_name)
+    output_midi = os.path.join(tmp_path, f"{wav_name}_regression.mid")
+
+    result = subprocess.run(
+        [
+            python_exe, cli_script,
+            input_wav, output_midi,
+            "--bpm", "100", "--no-merge",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
     assert result.returncode == 0, f"CLI failed with error: {result.stderr}"
     assert os.path.exists(output_midi), "Output MIDI file was not created."
-    
-    # Load MIDI and verify note count
+
     pm = pretty_midi.PrettyMIDI(output_midi)
     total_notes = sum(len(inst.notes) for inst in pm.instruments)
-    
-    # Based on previous run, we expect around 143 notes. 
-    # Allowing some margin for minor fluctuations in engine behavior if any.
-    assert 130 <= total_notes <= 160, f"Expected ~143 notes, but found {total_notes}."
-    
-    # Check BPM
-    assert pm.get_tempo_changes()[1][0] == pytest.approx(100, rel=1e-3)
 
-def test_fingerpick_stereo_regression(tmp_path):
-    """Regression test for Fingerpick_stereo_48-24.wav at 100 BPM."""
-    input_wav = "tests/Fingerpick_stereo_48-24.wav"
-    output_midi = os.path.join(tmp_path, "Fingerpick_stereo_48-24_regression.mid")
-    python_exe = r"E:\sw_ws\repo1\audio2midi\venv\Scripts\python.exe"
-    script_path = r"E:\sw_ws\repo1\audio2midi\src\audio2midi.py"
-    
-    assert os.path.exists(input_wav), f"Input file {input_wav} not found."
-
-    result = subprocess.run([
-        python_exe, script_path,
-        input_wav, output_midi,
-        "--bpm", "100", "--no-merge"
-    ], capture_output=True, text=True)
-    
-    assert result.returncode == 0, f"CLI failed with error: {result.stderr}"
-    assert os.path.exists(output_midi), "Output MIDI file was not created."
-    
-    pm = pretty_midi.PrettyMIDI(output_midi)
-    total_notes = sum(len(inst.notes) for inst in pm.instruments)
-    
-    # We also expect around 143 notes for this one.
-    assert 130 <= total_notes <= 160, f"Expected ~143 notes, but found {total_notes}."
-    assert pm.get_tempo_changes()[1][0] == pytest.approx(100, rel=1e-3)
-
-def test_plektrumpick_regression(tmp_path):
-    """Regression test for plektrumpick_mono_44-16.wav at 100 BPM."""
-    input_wav = "tests/plektrumpick_mono_44-16.wav"
-    output_midi = os.path.join(tmp_path, "plektrumpick_mono_44-16_regression.mid")
-    python_exe = r"E:\sw_ws\repo1\audio2midi\venv\Scripts\python.exe"
-    script_path = r"E:\sw_ws\repo1\audio2midi\src\audio2midi.py"
-    
-    assert os.path.exists(input_wav), f"Input file {input_wav} not found."
-
-    result = subprocess.run([
-        python_exe, script_path,
-        input_wav, output_midi,
-        "--bpm", "100", "--no-merge"
-    ], capture_output=True, text=True)
-    
-    assert result.returncode == 0, f"CLI failed with error: {result.stderr}"
-    assert os.path.exists(output_midi), "Output MIDI file was not created."
-    
-    pm = pretty_midi.PrettyMIDI(output_midi)
-    total_notes = sum(len(inst.notes) for inst in pm.instruments)
-    
-    # We detected 156 notes for this sample.
-    assert 145 <= total_notes <= 170, f"Expected ~156 notes, but found {total_notes}."
-    assert pm.get_tempo_changes()[1][0] == pytest.approx(100, rel=1e-3)
-
-def test_plektrumstrum_regression(tmp_path):
-    """Regression test for plektrumstrum_mono_44-16.wav at 100 BPM."""
-    input_wav = "tests/plektrumstrum_mono_44-16.wav"
-    output_midi = os.path.join(tmp_path, "plektrumstrum_mono_44-16_regression.mid")
-    python_exe = r"E:\sw_ws\repo1\audio2midi\venv\Scripts\python.exe"
-    script_path = r"E:\sw_ws\repo1\audio2midi\src\audio2midi.py"
-    
-    assert os.path.exists(input_wav), f"Input file {input_wav} not found."
-
-    result = subprocess.run([
-        python_exe, script_path,
-        input_wav, output_midi,
-        "--bpm", "100", "--no-merge"
-    ], capture_output=True, text=True)
-    
-    assert result.returncode == 0, f"CLI failed with error: {result.stderr}"
-    assert os.path.exists(output_midi), "Output MIDI file was not created."
-    
-    pm = pretty_midi.PrettyMIDI(output_midi)
-    total_notes = sum(len(inst.notes) for inst in pm.instruments)
-    
-    # We detected 220 notes for this sample.
-    assert 210 <= total_notes <= 240, f"Expected ~220 notes, but found {total_notes}."
+    low, high = band
+    assert low <= total_notes <= high, (
+        f"Expected ~{expected} notes for {wav_name}, but found {total_notes}."
+    )
     assert pm.get_tempo_changes()[1][0] == pytest.approx(100, rel=1e-3)

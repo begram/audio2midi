@@ -1,5 +1,15 @@
 # Implementation Plan Specification - Polyphonic Guitar-to-MIDI Enhancements
 
+> **Status:** this is the original phased plan and is kept as a historical record.
+> Phases 1–6 have landed. For where the code actually stands against the
+> requirements — including the gaps that remain (GuitarSet benchmark, latency and
+> memory verification, `--tuning`, type annotations) — see
+> §6 "Implementation Status" in [`requirements.md`](./requirements.md).
+>
+> Two task descriptions below name things that were built differently: Task 1.1's
+> "Spectral Denoising" shipped as an RMS-envelope `noise_gate`, and Task 5.1's
+> "MPE 6-Channel" shipped as one track per string rather than pinned MIDI channels.
+
 ## 1. Task Breakdown & Dependency Graph
 
 ```mermaid

@@ -7,3 +7,11 @@ venv/
 *.xlsx
 .vscode/
 .idea/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Test fixtures must be tracked -- otherwise the suite cannot run on a fresh
+# clone. Only the input WAVs are fixtures; every .mid in tests/ is generated
+# output, so those stay ignored.
+!tests/*.wav

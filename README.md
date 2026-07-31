@@ -7,9 +7,9 @@ This tool converts polyphonic acoustic guitar recordings (`.wav`) into high-fide
 - **High-Resolution Audio:** Supports **16-bit** and **24-bit** WAV files at sample rates of 44.1kHz, 48kHz, and 96kHz.
 - **Harmonic/Percussive Source Separation (HPSS):** Optional `--hpss` pre-filtering to eliminate pick attack transients and prevent false-positive phantom notes.
 - **Frequency Bounding:** Restrict detection to standard acoustic guitar frequencies (80 Hz to 1,400 Hz, E2–E6) using `--freq-bounds`.
-- **Expressive Pitch Bends:** Support for bends, vibrato, and slides via `--pitch-bend` written to output MIDI tracks.
+- **Expressive Pitch Bends:** Per-note bend contours (bends, vibrato, slides) via `--pitch-bend`, taken from each note's own contour so one string's bend is never copied onto its neighbours.
 - **Logarithmic Perceptual Velocity:** Optional `--velocity-curve` for dynamic loudness response matching human hearing.
-- **Viterbi Tablature & MPE Support:** Global dynamic programming solver for string assignment (Strings 1–6) with strict polyphonic chord string collision guards using `--tab`.
+- **Viterbi Tablature & Per-String Channels:** Global dynamic programming solver for string assignment (Strings 1–6) with strict polyphonic chord string collision guards using `--tab`. Each string becomes its own MIDI track/channel, so per-note bends do not collide.
 - **Quantization & Humanization:** Grid quantization with partial `--quantize-strength` snapping (e.g. 80% strength).
 - **Tempo Calibration:** Mandatory `--bpm` parameter for accurate MIDI timing.
 
@@ -27,6 +27,23 @@ This tool converts polyphonic acoustic guitar recordings (`.wav`) into high-fide
    py -3.10 -m venv venv
    .\venv\Scripts\pip install -r requirements.txt
    ```
+
+For the test and lint toolchain, install the dev requirements instead:
+```powershell
+.\venv\Scripts\pip install -r requirements-dev.txt
+```
+
+### Running the tests
+
+```powershell
+.\venv\Scripts\python.exe -m pytest -m "not slow"         # fast unit suite
+.\venv\Scripts\python.exe -m pytest                       # includes end-to-end regressions
+.\venv\Scripts\python.exe -m pytest -m "not slow" --cov   # with coverage report
+.\venv\Scripts\python.exe -m ruff check .                 # lint
+```
+
+The `slow` marker covers the end-to-end regressions, which run full Basic Pitch
+inference over the audio fixtures in `tests/`.
 
 ---
 
@@ -52,17 +69,33 @@ Run the converter using the virtual environment's Python interpreter:
 | `--velocity-curve` | Logarithmic dynamic velocity curve factor (e.g. 5.0). | `--velocity-curve 5.0` |
 | `--quantize` | Snap notes to grid (`1/4`, `1/8`, `1/16`, `1/32`). | `--quantize 1/16` |
 | `--quantize-strength` | Quantization snapping strength (`0.0` to `1.0`). | `--quantize-strength 0.8` |
-| `--min-duration` | Filter notes shorter than X seconds. | `--min-duration 0.03` |
+| `--min-duration` | Filter notes shorter than X seconds (post-filter). | `--min-duration 0.03` |
+| `--min-note-length` | Basic Pitch minimum note length in **milliseconds** (engine-level). | `--min-note-length 127.7` |
 | `--velocity-threshold` | Ignore notes quieter than X (`0-127`). | `--velocity-threshold 10` |
-| `--noise-threshold` | Amplitude threshold for noise gate (`0.0` to `1.0`). | `--noise-threshold 0.005` |
+| `--noise-threshold` | RMS threshold for the noise gate (`0.0` to `1.0`, `0.0` disables). | `--noise-threshold 0.005` |
+| `--min-freq` | Explicit minimum frequency bound in Hz (overrides `--freq-bounds`). | `--min-freq 80` |
+| `--max-freq` | Explicit maximum frequency bound in Hz (overrides `--freq-bounds`). | `--max-freq 1400` |
+| `--onset-threshold` | Basic Pitch onset detection threshold (`0.0` to `1.0`). | `--onset-threshold 0.5` |
+| `--frame-threshold` | Basic Pitch frame confidence threshold (`0.0` to `1.0`). | `--frame-threshold 0.3` |
 | `--no-merge` | Disable merging of overlapping identical pitches. | `--no-merge` |
 | `--instrument` | Set the name of the MIDI instrument track. | `--instrument "Acoustic Guitar"` |
+
+> `--min-duration` (seconds, applied after transcription) and `--min-note-length`
+> (milliseconds, applied inside the engine) are two independent gates. The
+> engine-level default of 127.7 ms is the stricter of the two.
 
 ---
 
 ## Technical Details & Architecture
 
-- **Pre-processing:** `librosa` (HPSS & normalization) and `scipy.signal` (80Hz Butterworth HPF).
+- **Pre-processing:** `librosa` (HPSS, normalization, RMS envelope gate) and a vectorized one-pole 80 Hz high-pass IIR via `scipy.signal.lfilter`.
 - **Engine:** Spotify's `basic-pitch` ML inference model with configurable frequency bounds.
-- **Tablature Solver:** Viterbi dynamic programming path solver with polyphonic string collision prevention.
-- **MIDI Generation:** `pretty_midi` with multi-channel MPE track separation and pitch bend event writing.
+- **Tablature Solver:** Viterbi dynamic programming path solver with a per-frame neck-position emission cost, physical travel transition cost, and polyphonic string collision prevention.
+- **MIDI Generation:** `pretty_midi`, one track (and channel) per assigned string, with per-note pitch bend contours recentred at each note's end.
+
+### Noise gate
+
+The gate works on a smoothed short-term RMS envelope, not on individual
+samples. Zeroing samples below a threshold clips the waveform at every zero
+crossing, and the resulting discontinuities are broadband distortion that
+Basic Pitch reports as phantom notes.
