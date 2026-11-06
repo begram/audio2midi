@@ -36,6 +36,7 @@ import pretty_midi
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+import basic_pitch_engine as bpe  # noqa: E402
 from engine_cache import transcribe_cached  # noqa: E402
 from midi_gen import generate_midi  # noqa: E402
 from post_process import (  # noqa: E402
@@ -79,7 +80,13 @@ WEAK_OCTAVE_RATIO = 0.5
 # Preprocessing / engine settings. Changing any of these requires re-running
 # inference, which is the expensive part, so results are cached on disk.
 ENGINE_PRESETS = {
-    "baseline": {},
+    "baseline": {},  # the CLI defaults (BasicPitchEngine's DEFAULT_* values)
+    # The README's opt-in values for clean recordings (basic_pitch_engine.CLEAN_RECORDING_*).
+    "tuned_clean": {
+        "onset_threshold": bpe.CLEAN_RECORDING_ONSET_THRESHOLD,
+        "frame_threshold": bpe.CLEAN_RECORDING_FRAME_THRESHOLD,
+        "min_note_len": bpe.CLEAN_RECORDING_MIN_NOTE_LENGTH_MS,
+    },
     "gate_off": {"noise_threshold": 0.0},
     "hpss": {"use_hpss": True},
     "freq_bounds": {"min_freq": 80.0, "max_freq": 1400.0},

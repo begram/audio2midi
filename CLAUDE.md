@@ -136,6 +136,14 @@ These are load-bearing; reordering silently corrupts output:
 - **Tab emission cost is the mean of per-note distances from `PREFERRED_FRET`**, not the distance of
   the mean fret. Averaging first scores frets 1 + 9 the same as 5 + 5, letting chords stretch beyond
   any hand; measured on GuitarSet it was the main reason chord string accuracy was ~0.52.
+- **Detection thresholds stay at Basic Pitch's defaults (0.5 / 0.3 / 127.7 ms) on purpose.** They
+  are defined once in `basic_pitch_engine.DEFAULT_*` and imported by the CLI. Stricter values
+  (`CLEAN_RECORDING_*`: 0.6 / 0.5 / 58 ms) win on GuitarSet (held-out onset F1 0.775 → 0.822) but
+  lost audible note events on the project's own, less controlled recordings (event recall 0.69 →
+  0.61, no ground truth there). Real recordings are imperfect and a missed note costs a user more
+  than a spurious one, so the defaults favour recall and the stricter values are a documented
+  opt-in. Don't retune the defaults from GuitarSet alone; the `tuned_clean` preset in both tools
+  keeps the comparison one command away.
 - **Open strings carry a penalty (`OPEN_STRING_PENALTY = 8`), not a bonus.** Without it an open
   string is free twice over: no position cost (no fretted note), and `_transition_cost` is 0 into
   or out of a frame without fretted notes, so the hand moves through it for free. The old bonus made

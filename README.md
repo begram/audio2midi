@@ -126,6 +126,24 @@ have no annotations, so its scores rank configurations rather than measure accur
 .\venv\Scripts\python.exe tools\evaluate_guitarset.py --split test --limit 0   # confirm only
 ```
 
+### Clean recordings
+
+The detection defaults (`--onset-threshold 0.5 --frame-threshold 0.3 --min-note-length 127.7`)
+are Basic Pitch's own, and are kept on purpose because real recordings are rarely perfect. For
+**clean** recordings (a good microphone or direct input, a quiet room, a steady level), stricter
+values are measurably more accurate:
+
+```powershell
+.\venv\Scripts\python.exe src\audio2midi.py "in.wav" "out.mid" --bpm 120 --onset-threshold 0.6 --frame-threshold 0.5 --min-note-length 58
+```
+
+On held-out GuitarSet players these raise onset F1 from 0.775 to 0.822 (chords 0.711 → 0.752,
+single-note lines 0.839 → 0.893), at a small cost to note-end accuracy and to `--tab` string
+accuracy (66.4% → 65.7%). They are not the default because they mainly drop quiet and short
+notes. On the less controlled recordings in `tests/` they found fewer of the note events audible
+in the audio (event recall 0.69 → 0.61), and a missed note is more work to fix than an extra one.
+If notes go missing, use the defaults; if you get spurious notes on a clean take, use these.
+
 ### Noise gate
 
 The gate works on a smoothed short-term RMS envelope, not on individual

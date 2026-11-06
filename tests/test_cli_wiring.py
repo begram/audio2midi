@@ -96,6 +96,41 @@ def test_thresholds_are_forwarded_to_the_engine(harness, wav, out):
     assert kwargs['min_note_len'] == pytest.approx(50.0)
 
 
+def test_cli_defaults_are_the_engines_defaults(harness, wav, out):
+    """One source of truth: the analysis tools' "baseline" preset uses the engine's own
+    defaults, so if the CLI's drifted from them the tools would measure a different
+    configuration than users get.
+
+    The values are Basic Pitch's own, kept on purpose for imperfect recordings; see the
+    comment on DEFAULT_ONSET_THRESHOLD before changing them.
+    """
+    import basic_pitch_engine as bpe
+
+    assert run([wav, out, '--bpm', '120']).exit_code == 0
+
+    kwargs = harness.transcribe_kwargs
+    assert kwargs['onset_threshold'] == bpe.DEFAULT_ONSET_THRESHOLD == 0.5
+    assert kwargs['frame_threshold'] == bpe.DEFAULT_FRAME_THRESHOLD == 0.3
+    assert kwargs['min_note_len'] == bpe.DEFAULT_MIN_NOTE_LENGTH_MS == 127.7
+
+
+def test_clean_recording_values_are_accepted_and_forwarded(harness, wav, out):
+    """The README's opt-in flags for clean recordings must reach the engine as written."""
+    import basic_pitch_engine as bpe
+
+    assert run([
+        wav, out, '--bpm', '120',
+        '--onset-threshold', str(bpe.CLEAN_RECORDING_ONSET_THRESHOLD),
+        '--frame-threshold', str(bpe.CLEAN_RECORDING_FRAME_THRESHOLD),
+        '--min-note-length', str(bpe.CLEAN_RECORDING_MIN_NOTE_LENGTH_MS),
+    ]).exit_code == 0
+
+    kwargs = harness.transcribe_kwargs
+    assert kwargs['onset_threshold'] == pytest.approx(0.6)
+    assert kwargs['frame_threshold'] == pytest.approx(0.5)
+    assert kwargs['min_note_len'] == pytest.approx(58.0)
+
+
 def test_pitch_bend_flag_is_forwarded(harness, wav, out):
     assert run([wav, out, '--bpm', '120']).exit_code == 0
     assert harness.transcribe_kwargs['include_pitch_bends'] is False

@@ -7,7 +7,7 @@ The test matrix maps each requirement from `requirements.md` to specific unit, i
 | ID | Requirement | Test Case Description | Test Level | Verification File |
 | :--- | :--- | :--- | :--- | :--- |
 | **TR-01** | FR-01: Frequency Bounding | Pass note events around the 80–1400 Hz bounds; verify exactly MIDI 39–88 survive, matching Basic Pitch's own `round(min)`…`round(max)` exclusive binning. | Unit | `tests/test_basic_pitch.py` |
-| **TR-02** | FR-01: Threshold Tuning | Pass `--onset-threshold 0.7` (and `--frame-threshold`, `--min-note-length`) to the CLI; verify the engine receives them. | Integration | `tests/test_cli_wiring.py` |
+| **TR-02** | FR-01: Threshold Tuning | Pass `--onset-threshold 0.7` (and `--frame-threshold`, `--min-note-length`) to the CLI; verify the engine receives them. Verify the CLI's defaults are the engine's `DEFAULT_*` constants (one source of truth), and that the README's clean-recording values are accepted and forwarded. | Integration | `tests/test_cli_wiring.py` |
 | **TR-03** | FR-02: HPSS Filter | Process audio with simulated pick attack transients; verify transient spikes are separated. | Unit | `tests/test_processor.py` |
 | **TR-04** | FR-03: Log Velocity Mapping | Pass linear amplitudes `[0.1, 0.5, 0.9]`; verify mapped MIDI velocities follow logarithmic curve. | Unit | `tests/test_post_process.py` |
 | **TR-05** | FR-04: Pitch Bend Events | Provide a per-note bend contour from the model mock; verify scaled `PitchBend` objects are written to the MIDI track, clamped and de-duplicated. | Integration | `tests/test_basic_pitch.py`, `tests/test_midi_gen.py` |

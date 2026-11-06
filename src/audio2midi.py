@@ -1,6 +1,11 @@
 import click
 
-from basic_pitch_engine import BasicPitchEngine
+from basic_pitch_engine import (
+    DEFAULT_FRAME_THRESHOLD,
+    DEFAULT_MIN_NOTE_LENGTH_MS,
+    DEFAULT_ONSET_THRESHOLD,
+    BasicPitchEngine,
+)
 from midi_gen import generate_midi
 from post_process import (
     apply_logarithmic_velocity,
@@ -26,8 +31,10 @@ GUITAR_MAX_FREQ = 1400.0
               help='Quantization snapping strength (0.0 to 1.0).')
 @click.option('--min-duration', type=click.FloatRange(min=0.0), default=0.030,
               help='Minimum note duration in seconds (post-filter).')
-@click.option('--min-note-length', type=click.FloatRange(min=0.0), default=127.70,
-              help='Basic Pitch minimum note length in milliseconds (engine-level).')
+@click.option('--min-note-length', type=click.FloatRange(min=0.0),
+              default=DEFAULT_MIN_NOTE_LENGTH_MS, show_default=True,
+              help='Basic Pitch minimum note length in milliseconds (engine-level). For clean '
+                   'recordings try 58.')
 @click.option('--velocity-threshold', type=click.IntRange(0, 127), default=10,
               help='Minimum velocity (0-127) to include a note.')
 @click.option('--velocity-curve', type=click.FloatRange(min=0.0), default=0.0,
@@ -42,10 +49,13 @@ GUITAR_MAX_FREQ = 1400.0
               help='Explicit minimum frequency bound in Hz.')
 @click.option('--max-freq', type=click.FloatRange(min=1.0), default=None,
               help='Explicit maximum frequency bound in Hz.')
-@click.option('--onset-threshold', type=click.FloatRange(0.0, 1.0), default=0.5,
-              help='Basic Pitch onset detection threshold.')
-@click.option('--frame-threshold', type=click.FloatRange(0.0, 1.0), default=0.3,
-              help='Basic Pitch frame confidence threshold.')
+@click.option('--onset-threshold', type=click.FloatRange(0.0, 1.0),
+              default=DEFAULT_ONSET_THRESHOLD, show_default=True,
+              help='Basic Pitch onset detection threshold. For clean recordings try 0.6 '
+                   '(see README, "Clean recordings").')
+@click.option('--frame-threshold', type=click.FloatRange(0.0, 1.0),
+              default=DEFAULT_FRAME_THRESHOLD, show_default=True,
+              help='Basic Pitch frame confidence threshold. For clean recordings try 0.5.')
 @click.option('--pitch-bend', is_flag=True,
               help='Extract and write pitch bend events (slides, vibrato).')
 @click.option('--merge/--no-merge', default=False,

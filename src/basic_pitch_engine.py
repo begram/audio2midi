@@ -17,6 +17,31 @@ from engine_base import TranscriptionEngine
 # onnxruntime is ~1 GB lighter than TensorFlow.
 MODEL_PATH = build_icassp_2022_model_path(FilenameSuffix.onnx)
 
+# Note-creation defaults. The CLI imports these, so its defaults and the engine's cannot
+# drift apart (the analysis tools' "baseline" preset uses the engine's).
+#
+# These are Basic Pitch's own general-purpose values, kept deliberately -- do not "fix" them
+# from GuitarSet numbers alone. Stricter values (CLEAN_RECORDING_* below) are measurably more
+# accurate on GuitarSet: swept on the dev split (players 00-03) they sit on a broad plateau,
+# and on the held-out players (04-05, 120 tracks) they raise onset F1 0.775 -> 0.822. But
+# GuitarSet is recorded under controlled conditions, and on the project's own recordings in
+# tests/ (no ground truth; scored against onsets detected in the audio) every stricter
+# setting found fewer of the audible note events (recall 0.692 -> 0.612) and none agreed
+# better with the audio. Stricter thresholds mainly drop quiet and short notes, which is
+# what an imperfect recording renders faintly, and a missed note costs a user more than a
+# spurious one. So the defaults favour recall; the clean-recording values are documented
+# in the README as opt-in flags.
+DEFAULT_ONSET_THRESHOLD = 0.5
+DEFAULT_FRAME_THRESHOLD = 0.3
+DEFAULT_MIN_NOTE_LENGTH_MS = 127.7
+
+# Opt-in values for clean, GuitarSet-like recordings (good mic, quiet room). Costs on the
+# held-out players, both small: offset F1 0.540 -> 0.532, --tab string accuracy 0.664 ->
+# 0.657. 58 ms is 5 model frames at Basic Pitch's 86.13 frames per second.
+CLEAN_RECORDING_ONSET_THRESHOLD = 0.6
+CLEAN_RECORDING_FRAME_THRESHOLD = 0.5
+CLEAN_RECORDING_MIN_NOTE_LENGTH_MS = 58.0
+
 # Basic Pitch emits per-note bend contours in units of 1/3 semitone. MIDI pitch-wheel
 # values span a 14-bit signed range; 4096 per semitone assumes the receiver's default
 # +-2 semitone bend range, so bends wider than 2 semitones are clipped.
@@ -54,8 +79,8 @@ class BasicPitchEngine(TranscriptionEngine):
     def transcribe(
         self, audio_data, sr,
         min_freq=None, max_freq=None,
-        onset_threshold=0.5, frame_threshold=0.3,
-        min_note_len=127.70, include_pitch_bends=False
+        onset_threshold=DEFAULT_ONSET_THRESHOLD, frame_threshold=DEFAULT_FRAME_THRESHOLD,
+        min_note_len=DEFAULT_MIN_NOTE_LENGTH_MS, include_pitch_bends=False
     ):
         """
         Transcribes audio data using Spotify's Basic Pitch.

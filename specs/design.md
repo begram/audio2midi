@@ -53,6 +53,7 @@ graph TD
 - Bends are **not** matched to notes by time window: a bend is owned by exactly one note by construction, so a single string's bend is never copied onto simultaneously sounding notes.
 - Velocity is clamped to $[1, 127]$; a velocity of 0 is a note-off in most DAWs.
 - Pinned to the ONNX model (`MODEL_PATH`); left to its default, `basic-pitch` picks whichever runtime is importable.
+- Detection defaults are defined once (`DEFAULT_ONSET_THRESHOLD` 0.5, `DEFAULT_FRAME_THRESHOLD` 0.3, `DEFAULT_MIN_NOTE_LENGTH_MS` 127.7) and imported by the CLI. They are Basic Pitch's own values, kept because they hold recall on imperfect recordings. `CLEAN_RECORDING_*` (0.6 / 0.5 / 58 ms) are the opt-in values for clean recordings: they reach onset F1 0.822 vs 0.775 on held-out GuitarSet players, but lose audible note events on the less controlled fixtures.
 - Pitches are filtered exactly as Basic Pitch bins them, `round(min)` to `round(max)` exclusive, so 80–1400 Hz keeps MIDI 39–88 (D#2–E6).
 
 ### 2.3 Post-Processor ([`src/post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py))
