@@ -116,7 +116,16 @@ These are load-bearing; reordering silently corrupts output:
 - **One MIDI track/channel per string** (`midi_gen`). Pitch bend is a channel-level message, so
   sharing a channel across strings makes per-note bends collide. Without `--tab` that sharing is
   unavoidable (everything lands on the unassigned track), so the CLI warns when `--pitch-bend` is
-  used alone. `_clean_bends` dedupes repeats and
+  used alone.
+- **Bend collisions are resolved per MIDI tick, not per float time** (`midi_gen._write_bends`).
+  `pretty_midi` writes same-tick pitch-wheel events sorted by *value*, so insertion order means
+  nothing there. A note's own bends on its end tick are dropped (the recentre supersedes them), and
+  the recentre is skipped when the next note on the channel already bends on or before that tick.
+  Both cases are routine: Basic Pitch puts the last bend exactly at the note's end, and
+  truncation/quantization make one note end exactly where the next begins.
+- **Tab emission cost is the mean of per-note distances from `PREFERRED_FRET`**, not the distance of
+  the mean fret. Averaging first scores frets 1 + 9 the same as 5 + 5, letting chords stretch beyond
+  any hand; measured on GuitarSet it was the main reason chord string accuracy was ~0.52. `_clean_bends` dedupes repeats and
   each bent note is recentred to 0 at its end so bends don't bleed forward.
 - **`merge_notes` concatenates the absorbed note's bend contour** rather than dropping it, and
   `ticks_to_seconds` retimes bends onto the quantized span — bends left at pre-quantization absolute
@@ -153,6 +162,10 @@ nothing), and the imports themselves.
 - `tests/test_cli.py` spawns the CLI as a subprocess (verifies real argument parsing);
   `tests/test_cli_wiring.py` drives it in-process via `CliRunner` with the heavy stages patched, to
   assert that options actually reach the pipeline components. Add option-plumbing tests to the latter.
+  Its `real_writer` fixture keeps the real `generate_midi`, for invariants only visible in the
+  written file (string exclusivity, bends inside their notes, wheel back at 0).
+- `tests/test_tools.py` covers `tools/` bookkeeping (GuitarSet string numbering, `string_accuracy`,
+  track selection, cache invalidation); `pytest.ini` puts `tools` on the path for it.
 - Unit tests patch `basic_pitch_engine.predict` with mock `note_events` tuples — no model inference.
 - `tests/test_regression.py` is the only `@pytest.mark.slow` module: full end-to-end inference over
   the `.wav` fixtures in `tests/`, asserting note counts against **tolerance bands**. Changing DSP or

@@ -33,6 +33,7 @@ class _Harness:
     def __init__(self):
         self.engine_cls = MagicMock()
         self.generate = MagicMock()
+        self.preprocess = MagicMock(return_value=(np.zeros(1024, dtype=np.float32), 22050))
         self.set_notes([
             {'pitch': 60, 'start': 0.10, 'end': 0.60, 'velocity': 100},
             {'pitch': 64, 'start': 0.10, 'end': 0.60, 'velocity': 90},
@@ -57,10 +58,18 @@ class _Harness:
 @pytest.fixture
 def harness():
     h = _Harness()
-    fake_audio = (np.zeros(1024, dtype=np.float32), 22050)
-    with patch.object(audio2midi, 'preprocess_pipeline', return_value=fake_audio), \
+    with patch.object(audio2midi, 'preprocess_pipeline', h.preprocess), \
          patch.object(audio2midi, 'BasicPitchEngine', h.engine_cls), \
          patch.object(audio2midi, 'generate_midi', h.generate):
+        yield h
+
+
+@pytest.fixture
+def real_writer():
+    """Like `harness`, but the real generate_midi runs, so the file on disk can be checked."""
+    h = _Harness()
+    with patch.object(audio2midi, 'preprocess_pipeline', h.preprocess), \
+         patch.object(audio2midi, 'BasicPitchEngine', h.engine_cls):
         yield h
 
 
@@ -205,6 +214,50 @@ def test_velocity_curve_boosts_midrange(harness, wav, out):
     assert harness.written_notes[0]['velocity'] > 64
 
 
+def test_preprocessing_options_reach_the_pipeline(harness, wav, out):
+    assert run([wav, out, '--bpm', '120']).exit_code == 0
+    assert harness.preprocess.call_args.kwargs == {'noise_threshold': 0.005, 'use_hpss': False}
+
+    assert run([wav, out, '--bpm', '120', '--hpss', '--noise-threshold', '0.02']).exit_code == 0
+    assert harness.preprocess.call_args.kwargs == {'noise_threshold': 0.02, 'use_hpss': True}
+
+
+def test_cleaning_thresholds_reach_clean_notes(harness, wav, out):
+    with patch.object(audio2midi, 'clean_notes', wraps=audio2midi.clean_notes) as spy:
+        assert run([
+            wav, out, '--bpm', '120', '--min-duration', '0.2', '--velocity-threshold', '50',
+        ]).exit_code == 0
+
+    assert spy.call_args.kwargs == {'min_duration': 0.2, 'velocity_threshold': 50}
+
+
+def test_quantize_strength_reaches_the_quantizer(harness, wav, out):
+    with patch.object(audio2midi, 'quantize_notes', wraps=audio2midi.quantize_notes) as spy:
+        assert run([
+            wav, out, '--bpm', '120', '--quantize', '1/8', '--quantize-strength', '0.4',
+        ]).exit_code == 0
+
+    assert spy.call_args.kwargs == {'grid_resolution': '1/8', 'strength': pytest.approx(0.4)}
+
+
+def test_velocity_threshold_applies_before_the_velocity_curve(harness, wav, out):
+    """CLAUDE.md ordering rule 3: the threshold judges raw engine confidence.
+
+    Velocity 8 is below the threshold of 10, but the curve would lift it to about 19. If the
+    curve ran first, this note would wrongly survive.
+    """
+    harness.set_notes([
+        {'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 8},
+        {'pitch': 64, 'start': 0.0, 'end': 0.5, 'velocity': 100},
+    ])
+
+    assert run([
+        wav, out, '--bpm', '120', '--velocity-threshold', '10', '--velocity-curve', '5.0',
+    ]).exit_code == 0
+
+    assert [n['pitch'] for n in harness.written_notes] == [64]
+
+
 def test_bpm_is_passed_through_to_the_generator(harness, wav, out):
     assert run([wav, out, '--bpm', '96']).exit_code == 0
 
@@ -215,6 +268,57 @@ def test_instrument_name_is_passed_through(harness, wav, out):
     assert run([wav, out, '--bpm', '120', '--instrument', 'Nylon']).exit_code == 0
 
     assert harness.generate.call_args.kwargs['instrument_name'] == 'Nylon'
+
+
+# --- whole pipeline, real MIDI writer ----------------------------------------
+
+def test_full_pipeline_output_keeps_strings_and_bends_consistent(real_writer, wav, out):
+    """Every stage after the engine runs for real, and the written file is checked.
+
+    Each stage has its own unit tests; this checks what they produce together, which is
+    where the ordering rules in CLAUDE.md matter. The input sustains notes into later plucks
+    on the only string that can play them (forcing overlap truncation), carries bends of
+    both signs that end exactly on the note's end, and is quantized, which lines note
+    boundaries up on shared ticks.
+    """
+    import pretty_midi
+
+    def bent(pitch, start, end, first, last):
+        return {'pitch': pitch, 'start': start, 'end': end, 'velocity': 100,
+                'pitch_bends': [{'pitch': first, 'time': start}, {'pitch': last, 'time': end}]}
+
+    real_writer.set_notes([
+        bent(40, 0.00, 1.40, 400, 900),     # low E: string 6 only, sustains into...
+        bent(41, 0.52, 1.60, -600, 300),    # ...F2, fret 1 on string 6 (truncates the E)
+        bent(40, 1.01, 2.00, -300, 700),    # E again, string 6, truncates the F
+        {'pitch': 64, 'start': 0.00, 'end': 2.0, 'velocity': 90},  # held high e
+    ])
+
+    result = run([wav, out, '--bpm', '120', '--quantize', '1/8', '--tab', '--pitch-bend'])
+    assert result.exit_code == 0, result.output
+
+    pm = pretty_midi.PrettyMIDI(out)
+    for inst in pm.instruments:
+        if 'String' not in inst.name:
+            continue
+        notes = sorted(inst.notes, key=lambda n: n.start)
+        # One string sounds one note at a time.
+        for prev, nxt in zip(notes, notes[1:], strict=False):
+            assert nxt.start >= prev.end - 1e-6, f"{inst.name}: overlapping notes"
+        # Every bend event falls within one of this channel's notes.
+        for pb in inst.pitch_bends:
+            assert any(n.start - 1e-6 <= pb.time <= n.end + 1e-6 for n in notes), \
+                f"{inst.name}: bend at {pb.time} outside every note"
+        # The wheel is back at 0 when the last note on the channel ends.
+        last_end = notes[-1].end
+        value = 0
+        for pb in inst.pitch_bends:
+            if pb.time <= last_end + 1e-9:
+                value = pb.pitch
+        assert value == 0, f"{inst.name}: bend bleeds past the final note"
+
+    string_6 = next(i for i in pm.instruments if i.name.endswith('String 6'))
+    assert len(string_6.notes) == 3
 
 
 # --- failure paths ----------------------------------------------------------

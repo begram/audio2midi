@@ -24,6 +24,11 @@ The test matrix maps each requirement from `requirements.md` to specific unit, i
 | **TR-16** | FR-06: Collision Fallback | For frames with no collision-free assignment, verify the number of colliding notes is the physical minimum (six strings used before any doubling) and that a single-placement pitch is never displaced. | Unit | `tests/test_tab_engine.py` |
 | **TR-17** | CLI Option Wiring | Verify `--freq-bounds` / `--min-freq` / `--max-freq` resolution, `--pitch-bend`, `--merge` / `--no-merge` (off by default), `--quantize`, `--tab`, `--velocity-curve`, `--bpm` and `--instrument` all reach the correct pipeline stage. | Integration | `tests/test_cli_wiring.py` |
 | **TR-18** | Resource Hygiene | Verify the scratch WAV handed to the model is deleted after both a successful run and a failed one. | Unit | `tests/test_basic_pitch.py` |
+| **TR-19** | FR-04: Same-Tick Bend Ordering | Verify a downward first bend on the next note survives the previous note's recentre on a shared boundary tick, an upward last bend at a note's end does not bleed past it, and output is independent of input note order. | Unit | `tests/test_midi_gen.py` |
+| **TR-20** | FR-06: Compact Chord Fingering | Verify position cost is per note (frets 1 + 9 cost more than 5 + 5) and that an octave shape is fingered at frets 1 and 3, not stretched across seven frets. | Unit | `tests/test_tab_engine.py` |
+| **TR-21** | Stage Ordering | Verify the velocity threshold judges raw engine confidence (applied before `--velocity-curve`), and that preprocessing, cleaning and quantization options reach their stages. | Integration | `tests/test_cli_wiring.py` |
+| **TR-22** | Pipeline Invariants | Run every post-engine stage for real with quantization, `--tab` and bends, then check the written file: no overlapping notes on a string channel, every bend inside one of its channel's notes, wheel at 0 after the last note. | Integration | `tests/test_cli_wiring.py` |
+| **TR-23** | Evaluation Bookkeeping | Verify GuitarSet string numbering (`6 − data_source`), that `string_accuracy` excludes unassigned and unmatched notes, style-balanced track selection, and that the engine cache misses when engine source changes. | Unit | `tests/test_tools.py` |
 
 ---
 

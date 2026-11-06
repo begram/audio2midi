@@ -41,6 +41,78 @@ def test_generate_midi_mpe_channels(tmp_path):
     assert [pb.pitch for pb in string_1_inst.pitch_bends] == [-256, 0]
 
 
+def _wheel_at(inst, time):
+    """Effective pitch-wheel value at `time`: the last event at or before it, in file order.
+
+    File order matters, not time order: pretty_midi writes same-tick pitch-wheel events
+    sorted by value, so that is the order a synth applies them in.
+    """
+    value = 0
+    for pb in inst.pitch_bends:
+        if pb.time <= time + 1e-9:
+            value = pb.pitch
+    return value
+
+
+def test_next_notes_downward_bend_survives_a_shared_boundary(tmp_path):
+    """A note truncated to the next pluck ends on the tick where the next note's bend starts.
+
+    The previous note's 0 recentre and the next note's first bend then share a tick, and
+    pretty_midi orders those by value: a negative bend sorts first and the 0 overwrites it.
+    """
+    midi_path = os.path.join(tmp_path, "boundary.mid")
+    notes = [
+        {'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 100, 'string': 2,
+         'pitch_bends': [{'pitch': 300, 'time': 0.2}]},
+        {'pitch': 62, 'start': 0.5, 'end': 1.0, 'velocity': 100, 'string': 2,
+         'pitch_bends': [{'pitch': -700, 'time': 0.5}, {'pitch': 900, 'time': 0.8}]},
+    ]
+
+    generate_midi(notes, bpm=120, output_path=midi_path)
+
+    inst = pretty_midi.PrettyMIDI(midi_path).instruments[0]
+    assert _wheel_at(inst, 0.5) == -700
+    assert _wheel_at(inst, 1.0) == 0
+
+
+def test_upward_last_bend_at_note_end_does_not_bleed(tmp_path):
+    """Basic Pitch puts a note's last bend exactly at its end, on the recentre's tick.
+
+    Sorted by value, a positive bend would land after the 0 and hold the channel bent
+    through the silence that follows.
+    """
+    midi_path = os.path.join(tmp_path, "bleed.mid")
+    notes = [
+        {'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 100, 'string': 2,
+         'pitch_bends': [{'pitch': 200, 'time': 0.0}, {'pitch': 800, 'time': 0.5}]},
+    ]
+
+    generate_midi(notes, bpm=120, output_path=midi_path)
+
+    inst = pretty_midi.PrettyMIDI(midi_path).instruments[0]
+    assert _wheel_at(inst, 0.25) == 200
+    assert _wheel_at(inst, 0.5) == 0
+
+
+def test_bend_output_does_not_depend_on_note_order(tmp_path):
+    results = []
+    for order in ('forward', 'reversed'):
+        notes = [
+            {'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 100, 'string': 2,
+             'pitch_bends': [{'pitch': 300, 'time': 0.2}]},
+            {'pitch': 62, 'start': 0.5, 'end': 1.0, 'velocity': 100, 'string': 2,
+             'pitch_bends': [{'pitch': -700, 'time': 0.5}]},
+        ]
+        if order == 'reversed':
+            notes.reverse()
+        midi_path = os.path.join(tmp_path, f"{order}.mid")
+        generate_midi(notes, bpm=120, output_path=midi_path)
+        inst = pretty_midi.PrettyMIDI(midi_path).instruments[0]
+        results.append([(round(pb.time, 4), pb.pitch) for pb in inst.pitch_bends])
+
+    assert results[0] == results[1]
+
+
 def test_generate_midi_deduplicates_redundant_bends(tmp_path):
     """Consecutive bends holding the same value collapse to one event."""
     midi_path = os.path.join(tmp_path, "dedupe_test.mid")

@@ -86,6 +86,34 @@ def test_open_string_bonus_does_not_scale_with_polyphony():
     )
 
 
+def test_position_cost_is_per_note_not_of_the_average():
+    """Frets 1 and 9 average to 5, but no hand reaches both. Must cost more than 5 and 5."""
+    mapper = TabMapper()
+
+    compact = ((3, 5), (2, 5))
+    stretched = ((3, 1), (2, 9))
+
+    assert mapper._frame_position_cost(compact) < mapper._frame_position_cost(stretched)
+
+
+def test_octave_chord_is_fingered_compactly():
+    """F2 + F3 is a plain octave shape (frets 1 and 3).
+
+    Averaging frets before scoring preferred fret 1 + fret 8 -- a seven-fret stretch -- because
+    the mean, 4.5, is nearer the preferred position. That is what kept chord string accuracy
+    at 0.52 on GuitarSet.
+    """
+    notes = [
+        {'pitch': 41, 'start': 0.0, 'end': 1.0, 'velocity': 100},
+        {'pitch': 53, 'start': 0.0, 'end': 1.0, 'velocity': 100},
+    ]
+
+    assigned = TabMapper().assign_strings(notes)
+
+    placements = sorted((n['string'], n['fret']) for n in assigned)
+    assert placements == [(4, 3), (6, 1)]
+
+
 def test_frame_candidates_are_capped():
     """Dense frames cannot blow up the |prev| x |curr| Viterbi step."""
     mapper = TabMapper(max_candidates=8)

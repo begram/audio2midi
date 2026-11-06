@@ -25,7 +25,7 @@ class TabMapper:
     # max_frets=15 is measured, not a guess at neck length. Over 20 GuitarSet tracks, 19-24
     # frets recovered no matched note (the unassigned rate is identical from 15 up -- the
     # ~1% of detections above fret 15 match nothing in the reference, so they are
-    # spurious) while string accuracy dropped slightly (0.577 -> 0.567-0.573) and solve time
+    # spurious) while string accuracy dropped slightly (0.650 -> 0.640-0.645) and solve time
     # tripled: every extra fret is another high-neck placement to pick wrongly. Pitches out
     # of reach fall back to (0, -1) and route to the unassigned track.
     def __init__(self, max_frets=15, max_candidates=64):
@@ -253,6 +253,13 @@ class TabMapper:
         Combines a neck-position preference with an open-string bonus. The
         bonus is averaged over the frame rather than summed, so it does not
         grow with polyphony and swamp the position and travel terms.
+
+        The position term is the mean of each fretted note's own distance from
+        PREFERRED_FRET, not the distance of the mean fret. Averaging first lets a
+        chord pair a note far down the neck with one far up -- frets 1 and 9 cost
+        the same as 5 and 5 -- which no hand can stretch. On 20 GuitarSet tracks
+        that cost chord string accuracy 0.524 against 0.647 per-note, and left the
+        solver below a context-free nearest-to-fret-5 baseline (0.577 vs 0.640).
         """
         cost = 0.0
 
@@ -260,8 +267,7 @@ class TabMapper:
         # notes contribute to the position estimate.
         frets = [c[1] for c in combo if c[1] > 0]
         if frets:
-            avg_fret = sum(frets) / len(frets)
-            cost += abs(avg_fret - self.PREFERRED_FRET)
+            cost += sum(abs(f - self.PREFERRED_FRET) for f in frets) / len(frets)
 
         if combo:
             open_count = sum(1 for s, f in combo if f == 0)
