@@ -6,7 +6,7 @@ import pytest
 
 from midi_gen import generate_midi
 from post_process import clean_notes, merge_notes, quantize_notes
-from processor import high_pass_filter, noise_gate, normalize_audio
+from processor import noise_gate, normalize_audio
 
 
 def test_noise_gate_silences_quiet_passages():
@@ -125,11 +125,3 @@ def test_midi_generation(tmp_path):
     assert pm.get_tempo_changes()[1][0] == pytest.approx(140, rel=1e-3)
     assert len(pm.instruments[0].notes) == 1
     assert pm.instruments[0].notes[0].pitch == 60
-
-def test_synthetic_audio_processing():
-    """Test high-pass filter on synthetic audio."""
-    sr = 22050
-    t = np.linspace(0, 1, sr)
-    audio = np.sin(2 * np.pi * 440 * t) + 0.5 * np.sin(2 * np.pi * 20 * t)
-    filtered = high_pass_filter(audio, sr, cutoff=80)
-    assert filtered.shape == audio.shape

@@ -1,8 +1,9 @@
 # Runtime dependencies. For the test/lint toolchain see requirements-dev.txt.
 
 # Core Transcription Engine. The [onnx] extra supplies onnxruntime on every platform;
-# basic_pitch_engine pins the ONNX model, so TensorFlow is not needed. (0.4 is the first
-# release whose ONNX export we have verified against the TensorFlow model.)
+# basic_pitch_engine pins the ONNX model, so TensorFlow is not needed. 0.4.0 is the version
+# whose ONNX export was checked note-for-note against the TensorFlow model; later releases
+# are allowed but unverified.
 basic-pitch[onnx]>=0.4.0
 
 # Audio Processing

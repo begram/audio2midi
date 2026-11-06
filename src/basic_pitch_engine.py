@@ -78,8 +78,13 @@ class BasicPitchEngine(TranscriptionEngine):
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
-        min_pitch = int(np.floor(librosa.hz_to_midi(min_freq))) if min_freq is not None else 0
-        max_pitch = int(np.ceil(librosa.hz_to_midi(max_freq))) if max_freq is not None else 127
+        # Mirror Basic Pitch's own bounding (note_creation.constrain_frequency), which keeps
+        # pitch bins from round(min) up to but excluding round(max). 80-1400 Hz (MIDI 39.49
+        # and 89.04) therefore means MIDI 39-88: D#2, a semitone of slack under the low E,
+        # up to E6. A looser floor/ceil here would contradict the engine and admit 89-90.
+        min_pitch = int(np.round(librosa.hz_to_midi(min_freq))) if min_freq is not None else 0
+        max_pitch = (int(np.round(librosa.hz_to_midi(max_freq))) - 1
+                     if max_freq is not None else 127)
 
         formatted_notes = []
         for note in note_events:

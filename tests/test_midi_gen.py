@@ -94,6 +94,38 @@ def test_upward_last_bend_at_note_end_does_not_bleed(tmp_path):
     assert _wheel_at(inst, 0.5) == 0
 
 
+def test_bends_inside_one_note_on_one_tick_keep_the_later_value(tmp_path):
+    """Two contour points 0.1 ms apart share a tick; the later one must be in force.
+
+    At 120 BPM a tick is ~2.3 ms; at low tempos it exceeds Basic Pitch's ~11.6 ms contour
+    spacing, so this happens on real material. Sorted by value, 500 would beat 200.
+    """
+    midi_path = os.path.join(tmp_path, "intra_tick.mid")
+    notes = [
+        {'pitch': 60, 'start': 0.0, 'end': 1.0, 'velocity': 100, 'string': 2,
+         'pitch_bends': [{'pitch': 500, 'time': 0.1000}, {'pitch': 200, 'time': 0.1001}]},
+    ]
+
+    generate_midi(notes, bpm=120, output_path=midi_path)
+
+    inst = pretty_midi.PrettyMIDI(midi_path).instruments[0]
+    assert _wheel_at(inst, 0.5) == 200
+
+
+def test_bend_past_its_note_end_is_dropped(tmp_path):
+    """Otherwise it would follow the recentre and hold the channel bent after the note."""
+    midi_path = os.path.join(tmp_path, "past_end.mid")
+    notes = [
+        {'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 100, 'string': 2,
+         'pitch_bends': [{'pitch': 300, 'time': 0.2}, {'pitch': 900, 'time': 0.8}]},
+    ]
+
+    generate_midi(notes, bpm=120, output_path=midi_path)
+
+    inst = pretty_midi.PrettyMIDI(midi_path).instruments[0]
+    assert [pb.pitch for pb in inst.pitch_bends] == [300, 0]
+
+
 def test_bend_output_does_not_depend_on_note_order(tmp_path):
     results = []
     for order in ('forward', 'reversed'):

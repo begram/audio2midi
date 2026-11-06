@@ -37,7 +37,7 @@ GUITAR_MAX_FREQ = 1400.0
 @click.option('--hpss', is_flag=True,
               help='Enable Harmonic-Percussive Source Separation to filter pick clicks.')
 @click.option('--freq-bounds', is_flag=True,
-              help='Restrict frequency detection to acoustic guitar range (80-1400 Hz).')
+              help='Restrict detection to 80-1400 Hz, which keeps MIDI 39-88 (D#2-E6).')
 @click.option('--min-freq', type=click.FloatRange(min=1.0), default=None,
               help='Explicit minimum frequency bound in Hz.')
 @click.option('--max-freq', type=click.FloatRange(min=1.0), default=None,
@@ -52,7 +52,8 @@ GUITAR_MAX_FREQ = 1400.0
               help='Merge consecutive same-pitch notes. Off by default: it removes real '
                    'repeated notes (see post_process.merge_notes).')
 @click.option('--instrument', default='Acoustic Guitar',
-              help='Instrument name for MIDI track.')
+              help='Track name (per-string tracks get " - String N"). Sets the name only; '
+                   'the MIDI program is always 24, nylon acoustic guitar.')
 @click.option('--tab', is_flag=True,
               help='Assign notes to strings (tablature mode).')
 def main(

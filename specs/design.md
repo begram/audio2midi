@@ -8,30 +8,32 @@ The system architecture expands the pipe-and-filter pipeline with optional pre-p
 graph TD
     A[Input Audio .wav] --> B[Audio Preprocessor processor.py]
     subgraph Preprocessing
-        B --> B1[Normalization & 80Hz HPF]
-        B1 --> B2[Optional HPSS Source Separation]
+        B --> B1[Peak Normalize to -1 dB & 80 Hz one-pole HPF]
+        B1 --> B2[HPSS, optional --hpss]
+        B2 --> B3[RMS-envelope Noise Gate, --noise-threshold]
     end
-    B2 --> C[Basic Pitch Engine basic_pitch_engine.py]
+    B3 --> C[Basic Pitch Engine basic_pitch_engine.py, ONNX]
     subgraph Inference & Extraction
-        C --> C1[Frequency Bounded Inference 80-1400Hz]
-        C1 --> C2[Note Event & Pitch Bend Extraction]
+        C --> C1[Inference, optional bounds --freq-bounds / --min-freq / --max-freq]
+        C1 --> C2[Note Events & per-note Bend Contours, --pitch-bend]
     end
     C2 --> D[Post-Processor post_process.py]
     subgraph Post Processing & Expression
-        D --> D1[Duration & Noise Filtering]
-        D2[Logarithmic Velocity Curve Transformer]
-        D1 --> D2
-        D2 --> D3[Windowed Note Merging & Quantizer]
+        D --> D1[Duration & Velocity Filter]
+        D1 --> D2[Log Velocity Curve, optional --velocity-curve]
+        D2 --> D3[Same-pitch Merging, optional --merge]
+        D3 --> D4[Quantize & retime bends, optional --quantize]
     end
-    D3 --> E[Tab Mapper tab_engine.py]
+    D4 --> E[Tab Mapper tab_engine.py, optional --tab]
     subgraph Tablature Solver
-        E --> E1[Viterbi Path Solver for String/Fret]
-        E1 --> E2[Polyphonic Chord Collision Filter]
+        E --> E1[Viterbi Solver with per-frame Collision Guard]
+        E1 --> E2[Same-string Overlap Resolution]
     end
     E2 --> F[MIDI Generator midi_gen.py]
+    D4 -. without --tab .-> F
     subgraph MIDI Output
         F --> F1[Per-String Track/Channel Split]
-        F1 --> F2[Pitch Bend Event Writer]
+        F1 --> F2[Pitch Bend Writer, one event per tick]
     end
     F2 --> G[Output .mid File]
 ```
@@ -50,6 +52,8 @@ graph TD
 - Reads each note's **own** bend contour from the fifth element of its `predict()` note event (units of 1/3 semitone). Values scale by $4096/3$ into MIDI ticks, clamped to the 14-bit signed range $[-8192, 8191]$; times are `linspace(start, end, len(contour))`. Emitted as dicts `{'pitch': int, 'time': float}`.
 - Bends are **not** matched to notes by time window: a bend is owned by exactly one note by construction, so a single string's bend is never copied onto simultaneously sounding notes.
 - Velocity is clamped to $[1, 127]$; a velocity of 0 is a note-off in most DAWs.
+- Pinned to the ONNX model (`MODEL_PATH`); left to its default, `basic-pitch` picks whichever runtime is importable.
+- Pitches are filtered exactly as Basic Pitch bins them, `round(min)` to `round(max)` exclusive, so 80–1400 Hz keeps MIDI 39–88 (D#2–E6).
 
 ### 2.3 Post-Processor ([`src/post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py))
 - **`apply_logarithmic_velocity(notes, curvature=5.0)`**: Maps linear model amplitude $a \in [0, 1]$ to MIDI velocity $V \in [1, 127]$:
@@ -71,7 +75,7 @@ graph TD
 
 ### 2.5 MIDI Generator ([`src/midi_gen.py`](file:///E:/sw_ws/repo1/audio2midi/src/midi_gen.py))
 - Creates one `pretty_midi.Instrument` per string (Strings 1–6) when tab mode is enabled; each becomes its own track and channel on write. Because a physical string sounds one note at a time, each voice gets an independent bend stream. `pretty_midi` allocates the literal channel numbers itself, so the design controls the track split rather than fixed channel indices.
-- Writes note events and each note's pitch bend events per track, clamped to $[-8192, 8191]$, with consecutive redundant values dropped and a recentre to 0 at each note's end so bends do not bleed into the next note on that channel. Collisions are resolved per MIDI tick because `pretty_midi` writes same-tick pitch-wheel events sorted by value: a note's own bends on its end tick are dropped in favour of the recentre, and the recentre is skipped when the next note on the channel already bends on or before that tick.
+- Writes note events and each note's pitch bend events per track, clamped to $[-8192, 8191]$, with consecutive redundant values dropped and a recentre to 0 at each note's end so bends do not bleed into the next note on that channel. Exactly one pitch-wheel event survives per MIDI tick, because `pretty_midi` writes same-tick pitch-wheel events sorted by value rather than by intent. The survivor is the one meant to be in force: the later-starting note's, and within a note the later in time, so a recentre beats its note's own last bend and the next note's first bend beats the previous note's recentre. Bends timed after their note's end are dropped.
 - Without `--tab` (and for notes whose string was withdrawn) everything shares the default track, hence one channel: a bend there applies to every note sounding at once. The CLI warns when `--pitch-bend` is used without `--tab`.
 
 ---

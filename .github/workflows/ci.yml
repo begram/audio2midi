@@ -27,7 +27,8 @@ jobs:
         run: ruff check .
 
       - name: Test
-        # The slow marker covers the end-to-end Basic Pitch regressions, which
-        # need the audio fixtures and several minutes of inference each.
+        # The slow marker covers the end-to-end Basic Pitch regressions over the
+        # audio fixtures. Cheap on ONNX, but kept out of the gate so CI never
+        # depends on model numerics; run them locally with plain `pytest`.
         # Coverage settings (source, branch mode, fail_under) live in .coveragerc.
         run: pytest -m "not slow" -q --cov --cov-report=term-missing

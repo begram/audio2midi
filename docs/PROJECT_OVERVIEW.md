@@ -52,7 +52,8 @@ audio2midi/
 │   ├── test_midi_gen.py      # Unit tests for per-string MIDI output & pitch bend writing
 │   ├── test_audio2midi.py    # Integration tests for core pipeline & noise gate behaviour
 │   ├── test_cli.py           # CLI subprocess invocation & argument validation
-│   ├── test_cli_wiring.py    # In-process CLI orchestration & option wiring
+│   ├── test_cli_wiring.py    # In-process CLI orchestration, option wiring & full-pipeline invariants
+│   ├── test_tools.py         # GuitarSet bookkeeping, track selection & engine-cache invalidation
 │   └── test_regression.py    # End-to-end transcription regressions (marked `slow`)
 ├── .github/workflows/ci.yml  # Lint + fast test suite with coverage gate on push / PR
 ├── pytest.ini                # Pytest configuration & marker registration
@@ -73,7 +74,7 @@ audio2midi/
 1. **Audio Pre-processing ([`src/processor.py`](file:///E:/sw_ws/repo1/audio2midi/src/processor.py)):**
    Audio loaded $\rightarrow$ Peak normalized to -1 dB $\rightarrow$ one-pole 80 Hz high-pass filtered $\rightarrow$ Optional HPSS (`librosa.effects.hpss`) $\rightarrow$ RMS-envelope noise gate.
 2. **Inference ([`src/basic_pitch_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/basic_pitch_engine.py)):**
-   Basic Pitch DNN model detects pitch onsets, offsets, amplitudes, and a per-note bend contour, optionally filtered by frequency bounds (`--freq-bounds`: 80–1400 Hz). Velocity is floored at 1 so a near-silent onset never becomes a note-off.
+   Basic Pitch DNN model detects pitch onsets, offsets, amplitudes, and a per-note bend contour, optionally filtered by frequency bounds (`--freq-bounds`: 80–1400 Hz, which keeps MIDI 39–88). Velocity is floored at 1 so a near-silent onset never becomes a note-off.
 3. **Post-Processing ([`src/post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py)):**
    Notes filtered by duration & velocity $\rightarrow$ Optional logarithmic velocity curve $\rightarrow$ Optional same-pitch merging (`--merge`) $\rightarrow$ Optional grid quantization (with bend re-timing).
 4. **Tablature Solver ([`src/tab_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/tab_engine.py)):**
@@ -108,7 +109,9 @@ event (units of 1/3 semitone; `× 4096/3` gives MIDI ticks, and the times are sp
 evenly across the note's span). Matching bends to notes by time window instead would
 copy one string's bend onto every simultaneously sounding note. Bends are re-timed
 when notes are quantized, carried across merges, and recentred at each note's end so
-they cannot bleed into the next note sharing that channel.
+they cannot bleed into the next note sharing that channel. Only one pitch-wheel event is
+written per MIDI tick, because `pretty_midi` orders same-tick events by value; the one
+kept is the one meant to be in force (the later note's, or the later point in time).
 
 ### Note merging complexity
 

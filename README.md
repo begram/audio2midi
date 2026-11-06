@@ -6,11 +6,11 @@ This tool converts polyphonic acoustic guitar recordings (`.wav`) into high-fide
 - **Polyphonic Detection:** Accurately transcribes multiple simultaneous notes and overlapping melodies.
 - **High-Resolution Audio:** Supports **16-bit** and **24-bit** WAV files at sample rates of 44.1kHz, 48kHz, and 96kHz.
 - **Harmonic/Percussive Source Separation (HPSS):** Optional `--hpss` pre-filtering to eliminate pick attack transients and prevent false-positive phantom notes.
-- **Frequency Bounding:** Restrict detection to standard acoustic guitar frequencies (80 Hz to 1,400 Hz, E2–E6) using `--freq-bounds`.
+- **Frequency Bounding:** `--freq-bounds` restricts detection to 80–1,400 Hz. Basic Pitch rounds those to pitch bins, so this keeps MIDI 39–88: D#2 (a semitone of slack under the low E) up to E6.
 - **Expressive Pitch Bends:** Per-note bend contours (bends, vibrato, slides) via `--pitch-bend`, taken from each note's own contour. Combine with `--tab`: pitch bend is a channel-wide MIDI message, so only per-string channels keep one string's bend off its neighbours. Without `--tab` all notes share a channel and the CLI warns about it.
 - **Logarithmic Perceptual Velocity:** Optional `--velocity-curve` for dynamic loudness response matching human hearing.
 - **Viterbi Tablature & Per-String Channels:** Global dynamic programming solver for string assignment (Strings 1–6) with strict polyphonic chord string collision guards using `--tab`. Each string becomes its own MIDI track/channel, so per-note bends do not collide.
-- **Quantization & Humanization:** Grid quantization with partial `--quantize-strength` snapping (e.g. 80% strength).
+- **Quantization:** Grid quantization with partial `--quantize-strength` snapping (e.g. 80% strength keeps some of the original timing).
 - **Tempo Calibration:** Mandatory `--bpm` parameter for accurate MIDI timing.
 
 ---
@@ -22,7 +22,7 @@ This tool converts polyphonic acoustic guitar recordings (`.wav`) into high-fide
 
 ### Setup
 1. Open a terminal in the project directory.
-2. Create and activate the virtual environment:
+2. Create the virtual environment and install the dependencies (no activation needed; the commands call the venv's interpreter directly):
    ```powershell
    py -3.10 -m venv venv
    .\venv\Scripts\pip install -r requirements.txt
@@ -57,28 +57,28 @@ Run the converter using the virtual environment's Python interpreter:
 
 ### CLI Command Options
 
-| Argument / Option | Description | Example |
+| Argument / Option | Description | Default |
 | :--- | :--- | :--- |
-| `input_wav` | **(Required)** Path to your source `.wav` file. | `"recording.wav"` |
-| `output_midi` | **(Required)** Path where the `.mid` file will be saved. | `"output.mid"` |
-| `--bpm` | **(Required)** Beats Per Minute tempo. | `--bpm 120` |
-| `--hpss` | Enable Harmonic-Percussive Source Separation to filter pick clicks. | `--hpss` |
-| `--freq-bounds` | Restrict pitch detection to acoustic guitar range (80–1400 Hz). | `--freq-bounds` |
-| `--pitch-bend` | Extract and write pitch bend events (slides, vibrato). | `--pitch-bend` |
-| `--tab` | Assign notes to strings 1–6 using Viterbi solver (MPE output). | `--tab` |
-| `--velocity-curve` | Logarithmic dynamic velocity curve factor (e.g. 5.0). | `--velocity-curve 5.0` |
-| `--quantize` | Snap notes to grid (`1/4`, `1/8`, `1/16`, `1/32`). | `--quantize 1/16` |
-| `--quantize-strength` | Quantization snapping strength (`0.0` to `1.0`). | `--quantize-strength 0.8` |
-| `--min-duration` | Filter notes shorter than X seconds (post-filter). | `--min-duration 0.03` |
-| `--min-note-length` | Basic Pitch minimum note length in **milliseconds** (engine-level). | `--min-note-length 127.7` |
-| `--velocity-threshold` | Ignore notes quieter than X (`0-127`). | `--velocity-threshold 10` |
-| `--noise-threshold` | RMS threshold for the noise gate (`0.0` to `1.0`, `0.0` disables). | `--noise-threshold 0.005` |
-| `--min-freq` | Explicit minimum frequency bound in Hz (overrides `--freq-bounds`). | `--min-freq 80` |
-| `--max-freq` | Explicit maximum frequency bound in Hz (overrides `--freq-bounds`). | `--max-freq 1400` |
-| `--onset-threshold` | Basic Pitch onset detection threshold (`0.0` to `1.0`). | `--onset-threshold 0.5` |
-| `--frame-threshold` | Basic Pitch frame confidence threshold (`0.0` to `1.0`). | `--frame-threshold 0.3` |
-| `--merge` / `--no-merge` | Merge consecutive same-pitch notes. **Off by default** — it absorbs genuine repeated notes, costing more recall than the precision it gains (see below). | `--merge` |
-| `--instrument` | Set the name of the MIDI instrument track. | `--instrument "Acoustic Guitar"` |
+| `input_wav` | **(Required)** Path to your source `.wav` file. | — |
+| `output_midi` | **(Required)** Path where the `.mid` file will be saved. | — |
+| `--bpm` | **(Required)** Tempo written to the MIDI file, and the grid `--quantize` snaps to (1–400). | — |
+| `--hpss` | Harmonic-Percussive Source Separation, to suppress pick clicks. | off |
+| `--freq-bounds` | Restrict detection to 80–1400 Hz, i.e. MIDI 39–88 (D#2–E6). | off (unbounded) |
+| `--min-freq` | Explicit minimum frequency in Hz; overrides the `--freq-bounds` minimum. | none |
+| `--max-freq` | Explicit maximum frequency in Hz; overrides the `--freq-bounds` maximum. | none |
+| `--pitch-bend` | Write each note's pitch bend contour (bends, slides, vibrato). Use with `--tab`; see below. | off |
+| `--tab` | Assign notes to strings 1–6 with the Viterbi solver; each string gets its own track and channel. Not full MPE (no channel rotation). | off |
+| `--velocity-curve` | Logarithmic velocity curve factor `k` (e.g. `5.0`); `0.0` disables. | `0.0` |
+| `--quantize` | Snap notes to a grid: `1/4`, `1/8`, `1/16`, `1/32`. | off |
+| `--quantize-strength` | How far notes move toward the grid, `0.0`–`1.0`. | `1.0` |
+| `--min-duration` | Drop notes shorter than this, in **seconds** (post-filter). | `0.030` |
+| `--min-note-length` | Basic Pitch minimum note length, in **milliseconds** (engine-level). | `127.7` |
+| `--velocity-threshold` | Drop notes below this raw velocity (`0`–`127`), judged before `--velocity-curve`. | `10` |
+| `--noise-threshold` | RMS threshold for the noise gate (`0.0`–`1.0`); `0.0` disables. | `0.005` |
+| `--onset-threshold` | Basic Pitch onset detection threshold (`0.0`–`1.0`). | `0.5` |
+| `--frame-threshold` | Basic Pitch frame confidence threshold (`0.0`–`1.0`). | `0.3` |
+| `--merge` / `--no-merge` | Merge consecutive same-pitch notes. Off by default: it absorbs genuine repeated notes, costing more recall than the precision it gains (see below). | `--no-merge` |
+| `--instrument` | Track name; string tracks become `"<name> - String N"`. Names only: every track uses MIDI program 24 (nylon acoustic guitar). | `"Acoustic Guitar"` |
 
 > `--min-duration` (seconds, applied after transcription) and `--min-note-length`
 > (milliseconds, applied inside the engine) are two independent gates. The
@@ -89,9 +89,9 @@ Run the converter using the virtual environment's Python interpreter:
 ## Technical Details & Architecture
 
 - **Pre-processing:** `librosa` (HPSS, normalization, RMS envelope gate) and a vectorized one-pole 80 Hz high-pass IIR via `scipy.signal.lfilter`.
-- **Engine:** Spotify's `basic-pitch` ML inference model with configurable frequency bounds.
+- **Engine:** Spotify's `basic-pitch` model, run as its ONNX export on `onnxruntime` (no TensorFlow), with configurable frequency bounds.
 - **Tablature Solver:** Viterbi dynamic programming path solver with a per-frame neck-position emission cost, physical travel transition cost, and polyphonic string collision prevention.
-- **MIDI Generation:** `pretty_midi`, one track (and channel) per assigned string, with per-note pitch bend contours recentred at each note's end.
+- **MIDI Generation:** `pretty_midi`, one track (and channel) per assigned string, with per-note pitch bend contours recentred at each note's end. Where two bend events fall on one MIDI tick, only the one meant to be in force is kept: `pretty_midi` would otherwise order them by value.
 
 ### Why note merging is off by default
 

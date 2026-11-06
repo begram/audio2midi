@@ -18,7 +18,8 @@ def test_apply_logarithmic_velocity():
 
     transformed = apply_logarithmic_velocity(notes, curvature=5.0)
 
-    # 0 maps to 0 (or min 1 if non-zero input)
+    # The contract keeps velocity in 1-127, but a 0 must pass through untouched rather
+    # than be lifted to 1: in MIDI a velocity of 0 means note-off, not "quietest note".
     assert transformed[0]['velocity'] == 0
     # 127 maps to 127
     assert transformed[2]['velocity'] == 127

@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Fast unit suite (what CI gates on)
 .\venv\Scripts\python.exe -m pytest -m "not slow"
 
-# Full suite, including end-to-end Basic Pitch regressions (minutes per fixture)
+# Full suite, including end-to-end Basic Pitch regressions (~15 s more on ONNX)
 .\venv\Scripts\python.exe -m pytest
 
 # Single test / single case
@@ -86,7 +86,9 @@ wav ──> processor ──> basic_pitch_engine ──> post_process ──> ta
 - `pitch` (int MIDI number), `start` / `end` (float seconds), `velocity` (int 1–127)
 - `pitch_bends` — optional `[{'pitch': int MIDI ticks, 'time': float seconds}]`
 - `string` / `fret` — added only by `TabMapper.assign_strings`
-- `start_ticks` / `end_ticks` — added only by `quantize_notes`
+- `start_ticks` / `end_ticks` — added only by `quantize_notes`, at 480 ticks per quarter. They record
+  the quantized grid position and are not updated later: when `assign_strings` truncates a note,
+  `end` changes and `end_ticks` does not. Nothing downstream reads them; `start`/`end` are the truth.
 
 New stages should read and return this shape rather than introducing a parallel representation.
 
@@ -114,19 +116,21 @@ These are load-bearing; reordering silently corrupts output:
 - **Pitch bends come from each note's own contour** (`note_events[i][4]`), never from time-window
   matching. Window matching copies one string's bend onto every simultaneous note.
 - **One MIDI track/channel per string** (`midi_gen`). Pitch bend is a channel-level message, so
-  sharing a channel across strings makes per-note bends collide. Without `--tab` that sharing is
-  unavoidable (everything lands on the unassigned track), so the CLI warns when `--pitch-bend` is
-  used alone.
-- **Bend collisions are resolved per MIDI tick, not per float time** (`midi_gen._write_bends`).
-  `pretty_midi` writes same-tick pitch-wheel events sorted by *value*, so insertion order means
-  nothing there. A note's own bends on its end tick are dropped (the recentre supersedes them), and
-  the recentre is skipped when the next note on the channel already bends on or before that tick.
-  Both cases are routine: Basic Pitch puts the last bend exactly at the note's end, and
-  truncation/quantization make one note end exactly where the next begins.
+  sharing a channel across strings makes per-note bends collide. Each bent note is recentred to 0
+  at its end so bends don't bleed forward. Without `--tab` that sharing is unavoidable (everything
+  lands on the unassigned track), so the CLI warns when `--pitch-bend` is used alone.
+- **Exactly one pitch-wheel event per MIDI tick** (`midi_gen._channel_bends`). `pretty_midi`
+  writes same-tick pitch-wheel events sorted by *value*, so insertion order means nothing there.
+  The survivor is the event meant to be in force: the later-starting note's, and within a note the
+  later in time (so a recentre beats its note's own last bend). Shared ticks are routine: Basic
+  Pitch puts the last bend exactly at the note's end, truncation and quantization make notes touch,
+  and at low tempos a tick is longer than the ~11.6 ms between contour points.
 - **Tab emission cost is the mean of per-note distances from `PREFERRED_FRET`**, not the distance of
   the mean fret. Averaging first scores frets 1 + 9 the same as 5 + 5, letting chords stretch beyond
-  any hand; measured on GuitarSet it was the main reason chord string accuracy was ~0.52. `_clean_bends` dedupes repeats and
-  each bent note is recentred to 0 at its end so bends don't bleed forward.
+  any hand; measured on GuitarSet it was the main reason chord string accuracy was ~0.52.
+- **`basic_pitch_engine` filters pitches exactly as Basic Pitch bins them**: `round(min)` to
+  `round(max)` exclusive, so `--freq-bounds` (80–1400 Hz) keeps MIDI 39–88 (D#2–E6). Don't
+  "tighten" it to E2 by switching to floor/ceil; that only makes the filter disagree with the engine.
 - **`merge_notes` concatenates the absorbed note's bend contour** rather than dropping it, and
   `ticks_to_seconds` retimes bends onto the quantized span — bends left at pre-quantization absolute
   times land outside their own note.
@@ -154,8 +158,9 @@ the stricter of the two — raising only `--min-duration` often has no visible e
 
 `src/` holds **flat top-level modules, not a package** — imports are `from processor import ...`,
 with no package prefix. This is wired up in three places that must stay in sync when adding a module:
-`pytest.ini` (`pythonpath = src`), `setup.py` (`py_modules`, since `find_packages` would return
-nothing), and the imports themselves.
+`pytest.ini` (`pythonpath = src tools`), `setup.py` (`py_modules`, since `find_packages` would
+return nothing), and the imports themselves. `tools/` is flat the same way but deliberately not
+installed: its scripts put `src` on `sys.path` themselves, and only `pytest.ini` lists it.
 
 ## Tests
 
@@ -168,8 +173,9 @@ nothing), and the imports themselves.
   track selection, cache invalidation); `pytest.ini` puts `tools` on the path for it.
 - Unit tests patch `basic_pitch_engine.predict` with mock `note_events` tuples — no model inference.
 - `tests/test_regression.py` is the only `@pytest.mark.slow` module: full end-to-end inference over
-  the `.wav` fixtures in `tests/`, asserting note counts against **tolerance bands**. Changing DSP or
-  threshold defaults will move these numbers; update the bands deliberately, and mention it.
+  the `.wav` fixtures in `tests/`, run with CLI defaults only, asserting note counts against
+  **tolerance bands** (about ±8% around the measured count). Changing DSP or threshold defaults will
+  move these numbers; re-measure and update the bands deliberately, and mention it.
 - Use the session fixtures in `tests/conftest.py` (`python_exe`, `cli_script`, `fixture_wav`) instead
   of hardcoding paths — `fixture_wav` skips cleanly when an audio fixture is absent.
 

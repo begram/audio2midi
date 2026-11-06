@@ -44,6 +44,13 @@ class TabMapper:
         return self._pitch_map.get(pitch, [])
 
     def assign_strings(self, notes):
+        """Adds `string` (1-6, or 0 if unplaceable) and `fret` (-1 if unplaceable) to each note.
+
+        Mutates the given note dicts and returns them sorted by start. Afterwards no two
+        simultaneous notes share a string: a later pluck on the same string truncates the
+        earlier note (`end` changes; `end_ticks`, if quantized, is left as quantized), and a
+        near-simultaneous voice that cannot be placed gives up its string instead.
+        """
         if not notes:
             return []
 

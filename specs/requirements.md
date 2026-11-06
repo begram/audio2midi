@@ -16,7 +16,7 @@ Based on analysis and empirical evaluation of acoustic guitar transcription usin
 ## 2. Functional Requirements
 
 ### FR-01: Frequency Bounding & Model Hyperparameter Tuning
-- Restrict `basic-pitch` inference frequency range between **E2 (~80 Hz)** and **E6 (~1400 Hz)** to eliminate sub-bass and ultra-treble noise.
+- Restrict `basic-pitch` inference frequency range to **80–1,400 Hz** to eliminate sub-bass and ultra-treble noise. Basic Pitch rounds the bounds to pitch bins, so this keeps MIDI 39–88: D#2 (one semitone of slack under the low E, E2 = 82.4 Hz) up to E6 (1,318.5 Hz).
 - Expose model thresholds (`--onset-threshold`, `--frame-threshold`, `--min-note-length`) via the CLI to enable tuning for fingerstyle vs. heavy strumming.
 
 ### FR-02: Harmonic/Percussive Source Separation (HPSS) & Audio Cleaning
@@ -62,7 +62,7 @@ Based on analysis and empirical evaluation of acoustic guitar transcription usin
 
 | Requirement ID | Acceptance Criterion | Verification Method |
 | :--- | :--- | :--- |
-| **AC-01 (FR-01)** | Notes below 80 Hz or above 1400 Hz are excluded from MIDI output. | Unit test with out-of-bounds sine waves |
+| **AC-01 (FR-01)** | With `--freq-bounds`, only MIDI 39–88 reach the MIDI output (the pitch bins Basic Pitch keeps for 80–1,400 Hz). | Unit test on the bin boundaries (`test_basic_pitch.py`), using mocked note events rather than audio |
 | **AC-02 (FR-02)** | High-transient pick strikes do not produce phantom notes when `--hpss` is enabled. | Integration test on fingerpick sample |
 | **AC-03 (FR-03)** | Velocity distribution matches logarithmic loudness curve without clipping quiet tails. | Velocity distribution benchmark |
 | **AC-04 (FR-04)** | MIDI file contains valid `PitchBend` events when pitch bend option is enabled. | MIDI inspection via `pretty_midi` |

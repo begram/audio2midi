@@ -31,6 +31,23 @@ def test_basic_pitch_frequency_bounding():
     assert len(notes) == 1
     assert notes[0]['pitch'] == 60
 
+def test_frequency_bounds_match_basic_pitchs_own_rounding():
+    """80-1400 Hz keeps MIDI 39-88 (D#2-E6), exactly what Basic Pitch itself emits.
+
+    Basic Pitch keeps bins from round(min) up to but excluding round(max): 80 Hz is MIDI
+    39.49 -> 39, and 1400 Hz is 89.04 -> 89, exclusive. A ceil on the top bound (the old
+    filter) would also admit 89 and 90.
+    """
+    events = [(i * 0.5, i * 0.5 + 0.4, p, 0.8) for i, p in enumerate([38, 39, 88, 89, 90])]
+
+    with patch('basic_pitch_engine.predict', MagicMock(return_value=({}, None, events))):
+        notes = BasicPitchEngine().transcribe(
+            np.zeros(1024, dtype=np.float32), sr=22050, min_freq=80.0, max_freq=1400.0
+        )
+
+    assert [n['pitch'] for n in notes] == [39, 88]
+
+
 def test_basic_pitch_pitch_bends():
     """Bends come from the note's own contour (note_events[i][4]).
 
