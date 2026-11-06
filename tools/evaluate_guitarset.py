@@ -73,10 +73,11 @@ ENGINE_PRESETS = {
 # Split by player, so test results also show whether tuning carries over to players it never
 # saw. Tune on `dev` only; run `test` to confirm a decision, never to make one -- once a
 # setting is chosen by looking at test scores, those scores stop being an honest estimate.
-# Caveat: decisions made before this split existed (merging off, max_frets=15, the per-note
-# position cost) were measured on 20 tracks spread over all six players, 6 of them from
-# players 04-05. Those 6 are a small part of the 120 test tracks (results without them differ
-# by under 0.01), but the test set is not perfectly unseen for those decisions.
+# Caveat: two decisions predate this split (merging off, the per-note position cost) and were
+# first measured on 20 tracks spread over all six players, 6 of them from players 04-05. Those
+# 6 are a small part of the 120 test tracks (results without them differ by under 0.01), but
+# the test set is not perfectly unseen for those two. Later decisions (the open-string
+# penalty, re-checking max_frets) were made on `dev` alone.
 SPLITS = {
     "dev": ("00", "01", "02", "03"),
     "test": ("04", "05"),
@@ -274,8 +275,9 @@ def main():
     parser.add_argument("--split", choices=[*SPLITS, "all"], default="dev",
                         help="Players to draw from: dev (00-03, for tuning), test (04-05, for "
                              "confirming a decision), or all. Default: dev.")
-    parser.add_argument("--limit", type=int, default=12,
-                        help="Tracks to evaluate from the split (0 = every track in it).")
+    parser.add_argument("--limit", type=int, default=20,
+                        help="Tracks to evaluate from the split, style-balanced (0 = every "
+                             "track in it). Default: 20.")
     parser.add_argument("--engine-presets", nargs="*", default=["baseline"])
     parser.add_argument("--post-presets", nargs="*", default=list(POST_PRESETS))
     parser.add_argument("--no-cache", action="store_true")

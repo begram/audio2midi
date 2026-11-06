@@ -51,7 +51,7 @@ def test_frequency_bounds_match_basic_pitchs_own_rounding():
 def test_basic_pitch_pitch_bends():
     """Bends come from the note's own contour (note_events[i][4]).
 
-    Values are in 1/3-semitone units and scale by 4096/3 into MIDI ticks; the
+    Values are in 1/3-semitone units and scale by 4096/3 into pitch-wheel units; the
     times are spread evenly across the owning note's span.
     """
     engine = BasicPitchEngine()

@@ -89,7 +89,10 @@ wav ──> processor ──> basic_pitch_engine ──> post_process ──> ta
 (`TranscriptionEngine.transcribe` docstring):
 
 - `pitch` (int MIDI number), `start` / `end` (float seconds), `velocity` (int 1–127)
-- `pitch_bends` — optional `[{'pitch': int MIDI ticks, 'time': float seconds}]`
+- `pitch_bends` — optional `[{'pitch': int, 'time': float seconds}]`, where `pitch` is in MIDI
+  pitch-wheel units (−8192…8191, 4096 per semitone, assuming the default ±2-semitone bend range;
+  larger bends clip). Not to be confused with *time* ticks (`start_ticks`, and the MIDI ticks
+  `midi_gen` compares bend timing in).
 - `string` / `fret` — added only by `TabMapper.assign_strings`
 - `start_ticks` / `end_ticks` — added only by `quantize_notes`, at 480 ticks per quarter. They record
   the quantized grid position and are not updated later: when `assign_strings` truncates a note,

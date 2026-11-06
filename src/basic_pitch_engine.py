@@ -17,8 +17,9 @@ from engine_base import TranscriptionEngine
 # onnxruntime is ~1 GB lighter than TensorFlow.
 MODEL_PATH = build_icassp_2022_model_path(FilenameSuffix.onnx)
 
-# Basic Pitch emits per-note bend contours in units of 1/3 semitone; MIDI pitch
-# bend uses 4096 ticks per semitone over a 14-bit signed range.
+# Basic Pitch emits per-note bend contours in units of 1/3 semitone. MIDI pitch-wheel
+# values span a 14-bit signed range; 4096 per semitone assumes the receiver's default
+# +-2 semitone bend range, so bends wider than 2 semitones are clipped.
 CONTOUR_BINS_PER_SEMITONE = 3
 PITCH_BEND_SCALE = 4096
 PITCH_BEND_MIN = -8192

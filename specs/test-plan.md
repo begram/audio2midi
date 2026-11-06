@@ -42,7 +42,7 @@ The test matrix maps each requirement from `requirements.md` to specific unit, i
    - **Pitch Bend MIDI Export (TR-05):** Ensures pitch articulation (slides/vibrato) is preserved without corrupting timing.
    - **Frequency Bounding & HPSS Cleaning (TR-01, TR-03):** Crucial for suppressing phantom note artifacts.
 3. **Medium Risk (Priority 3):**
-   - **MPE Multi-Channel Assignment (TR-06):** Important for DAW compatibility.
+   - **Per-String Track/Channel Assignment (TR-06):** Important for DAW compatibility. (Not MPE: there is no per-note channel rotation.)
 4. **Low Risk (Priority 4):**
    - **CLI Threshold Arguments (TR-02):** UI/UX convenience.
 

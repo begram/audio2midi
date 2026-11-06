@@ -6,9 +6,9 @@ import pytest
 from midi_gen import generate_midi
 
 
-def test_generate_midi_mpe_channels(tmp_path):
-    """Test generating MIDI with string assignments and pitch bends."""
-    midi_path = os.path.join(tmp_path, "mpe_test.mid")
+def test_generate_midi_writes_one_track_per_string(tmp_path):
+    """String-assigned notes land on their own string's track, each with its own bends."""
+    midi_path = os.path.join(tmp_path, "per_string.mid")
 
     notes = [
         {
@@ -21,7 +21,7 @@ def test_generate_midi_mpe_channels(tmp_path):
         }
     ]
 
-    generate_midi(notes, bpm=120, output_path=midi_path, instrument_name="Guitar MPE")
+    generate_midi(notes, bpm=120, output_path=midi_path, instrument_name="Guitar")
 
     assert os.path.exists(midi_path)
     pm = pretty_midi.PrettyMIDI(midi_path)
@@ -169,7 +169,7 @@ def test_generate_midi_deduplicates_redundant_bends(tmp_path):
 
 
 def test_generate_midi_writes_contract_form_bends(tmp_path):
-    """Bends use the engine_base contract: {'pitch': ticks, 'time': seconds}."""
+    """Bends use the engine_base contract: {'pitch': pitch-wheel units, 'time': seconds}."""
     midi_path = os.path.join(tmp_path, "dict_bends.mid")
 
     notes = [{

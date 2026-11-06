@@ -105,7 +105,8 @@ does not fade in the first note's attack.
 ### Why pitch bends are per-note
 
 Basic Pitch returns each note's own bend contour as the fifth element of its note
-event (units of 1/3 semitone; `× 4096/3` gives MIDI ticks, and the times are spread
+event (units of 1/3 semitone; `× 4096/3` gives pitch-wheel units, assuming the default
+±2-semitone bend range, and the times are spread
 evenly across the note's span). Matching bends to notes by time window instead would
 copy one string's bend onto every simultaneously sounding note. Bends are re-timed
 when notes are quantized, carried across merges, and recentred at each note's end so
