@@ -110,6 +110,18 @@ was meant to catch never reach it.
 It remains available via `--merge` for sparser output, since trading recall for precision
 is a reasonable preference.
 
+### Measuring accuracy
+
+`tools/evaluate_guitarset.py` scores the pipeline against [GuitarSet](https://zenodo.org/records/3371780)
+ground truth (download `annotation.zip` and `audio_mono-mic.zip` into `data/guitarset/`). On 20
+tracks the defaults reach onset F1 0.742, and `--tab` places 58% of matched notes on the right
+string. `tools/analyze_transcription.py` compares presets on the recordings in `tests/`, but those
+have no annotations, so its scores rank configurations rather than measure accuracy.
+
+```powershell
+.\venv\Scripts\python.exe tools\evaluate_guitarset.py --limit 20
+```
+
 ### Noise gate
 
 The gate works on a smoothed short-term RMS envelope, not on individual

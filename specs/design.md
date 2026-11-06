@@ -46,7 +46,7 @@ graph TD
 - **`noise_gate(audio, threshold, frame_length, hop_length, smoothing_frames)`**: Thresholds a smoothed short-term RMS envelope and applies the result as a gain curve, so note decay tails are attenuated smoothly rather than clipped sample-by-sample. This supersedes the `apply_spectral_denoise(audio, sr)` entry point named in earlier revisions, which was never implemented; it satisfies the FR-02 intent of protecting decay tails from a hard gate.
 
 ### 2.2 ML Engine ([`src/basic_pitch_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/basic_pitch_engine.py))
-- Extends `transcribe()` to accept `min_freq=80.0`, `max_freq=1400.0`, `onset_threshold`, `frame_threshold`, `min_note_len`, `include_pitch_bends`.
+- Extends `transcribe()` to accept `min_freq`, `max_freq` (default `None`, i.e. unbounded; the CLI's `--freq-bounds` supplies 80 / 1400 Hz), `onset_threshold`, `frame_threshold`, `min_note_len`, `include_pitch_bends`.
 - Reads each note's **own** bend contour from the fifth element of its `predict()` note event (units of 1/3 semitone). Values scale by $4096/3$ into MIDI ticks, clamped to the 14-bit signed range $[-8192, 8191]$; times are `linspace(start, end, len(contour))`. Emitted as dicts `{'pitch': int, 'time': float}`.
 - Bends are **not** matched to notes by time window: a bend is owned by exactly one note by construction, so a single string's bend is never copied onto simultaneously sounding notes.
 - Velocity is clamped to $[1, 127]$; a velocity of 0 is a note-off in most DAWs.
@@ -65,12 +65,14 @@ graph TD
   - Emission Cost $E(s)$, applied at **every** frame: $|\overline{f_{\text{fretted}}} - 5| - w_{\text{open}} \cdot \frac{|\{f = 0\}|}{|s|}$. Open strings are excluded from the position average because they do not constrain the fretting hand, and the open-string bonus is averaged over the frame so it does not grow with polyphony. Applying this only at frame 0 (as earlier revisions did) leaves absolute neck position unanchored for the rest of the piece.
   - Transition Cost $C(s_i, s_{i+1})$: $w_{\text{fret}} \cdot |\overline{f_{i+1}} - \overline{f_i}| + w_{\text{string}} \cdot |\overline{s_{i+1}} - \overline{s_i}|$, with $w_{\text{fret}} = 1.5$, $w_{\text{string}} = 0.5$. The open-string term lives in the emission cost only; counting it here as well double-counts it once per transition.
   - Time complexity: $O(T \cdot K^2)$ over $T$ chord frames, where $K$ is the candidate count per frame. $K$ is the size of an unbounded Cartesian product, so it is capped (`max_candidates`, default 64) by keeping the lowest-emission-cost candidates. Measured $K$ for real chords is 1–34.
+- **Fret limit** (`max_frets`, default 15): measured on GuitarSet rather than set to a neck length. Raising it to 19–24 recovered no matched note and lowered string accuracy slightly (0.577 → 0.567–0.573) at ~3× solve time; detections above fret 15 were spurious. Out-of-reach pitches route to the default track.
 - **Chord Collision Guard**: Enforces that for notes with $|t_{\text{onset}, A} - t_{\text{onset}, B}| < 15\text{ms}$, $s_A \neq s_B$. Pitches with no valid placement fall back to $(0, -1)$ and route to the default track.
 - **Collision Fallback** (`_best_effort_assignment`): when the frame admits no collision-free combination — more than six simultaneous notes, or duplicate detections of a single-placement pitch — an exact bipartite matching (augmenting paths, most-constrained note first) maximizes the count of notes on distinct strings, and any remainder takes its placement closest to $\text{PREFERRED\_FRET}$. Earlier revisions took each note's first placement, which could pile four notes onto string 6 while strings 1–5 sat free. See the FR-06 note in [`requirements.md`](./requirements.md) for why a residual collision is unavoidable rather than a solver defect.
 
 ### 2.5 MIDI Generator ([`src/midi_gen.py`](file:///E:/sw_ws/repo1/audio2midi/src/midi_gen.py))
 - Creates one `pretty_midi.Instrument` per string (Strings 1–6) when tab mode is enabled; each becomes its own track and channel on write. Because a physical string sounds one note at a time, each voice gets an independent bend stream. `pretty_midi` allocates the literal channel numbers itself, so the design controls the track split rather than fixed channel indices.
 - Writes note events and each note's pitch bend events per track, clamped to $[-8192, 8191]$, with consecutive redundant values dropped and a recentre to 0 at each note's end so bends do not bleed into the next note on that channel.
+- Without `--tab` (and for notes whose string was withdrawn) everything shares the default track, hence one channel: a bend there applies to every note sounding at once. The CLI warns when `--pitch-bend` is used without `--tab`.
 
 ---
 
@@ -112,4 +114,5 @@ graph TD
   - Mock `basic-pitch` output using synthesized synthetic note tuples to verify post-processing and MIDI generation end-to-end without running ML inference during fast unit test runs.
 - **End-to-End & Benchmark Testing:**
   - Full transcription pipeline run against the reference recordings in `tests/`, asserting note-count bands and output tempo. These are marked `slow` and deselected with `-m "not slow"`.
-  - **Not yet implemented:** the `GuitarSet` F-measure benchmark against ground-truth annotations described in `requirements.md` (NFR accuracy target). No corpus, scoring script, or ground-truth comparison exists in this repository; the note-count bands are a regression tripwire, not an accuracy measurement.
+  - **Accuracy benchmark (manual):** `tools/evaluate_guitarset.py` scores against GuitarSet ground truth (the NFR accuracy target in `requirements.md`, currently not met). It needs the separately downloaded corpus, so it is not part of CI; the note-count bands remain a regression tripwire, not an accuracy measurement.
+  - **Plausibility sweep:** `tools/analyze_transcription.py` ranks presets on the `tests/` fixtures using self-consistency metrics. It has no ground truth and measures no accuracy. Both tools share `tools/engine_cache.py`, whose key covers the engine source files so a changed default cannot serve stale inference.

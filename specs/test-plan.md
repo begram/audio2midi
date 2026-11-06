@@ -14,7 +14,7 @@ The test matrix maps each requirement from `requirements.md` to specific unit, i
 | **TR-06** | FR-05: Per-String Track Output | Enable `--tab`; verify output MIDI splits string events onto distinct tracks. | Integration | `tests/test_midi_gen.py` |
 | **TR-07** | FR-06: Viterbi String Solver | Provide sequence of notes; verify the solver outputs an ergonomic fingering path and that position preference does not decay after the first frame. | Unit | `tests/test_tab_engine.py` |
 | **TR-08** | FR-06: Chord Collision Guard | Provide simultaneous multi-note chord onset; verify all notes are assigned to unique physical strings. | Unit | `tests/test_tab_engine.py` |
-| **TR-09** | Non-Functional Accuracy | Run accuracy benchmark against `GuitarSet` clips; verify F-measure $\ge 0.92$. | Benchmark | **Not implemented.** No corpus or scoring exists; see TR-12. |
+| **TR-09** | Non-Functional Accuracy | Run accuracy benchmark against `GuitarSet` clips; verify F-measure $\ge 0.92$. | Benchmark (manual) | `tools/evaluate_guitarset.py`. Runs on demand, not in CI. Target **not met**: onset F1 0.742 on 20 tracks. Also scores `--tab` string accuracy against the hexaphonic labels. |
 | **TR-10** | FR-04: Bend Ownership & Timing | Verify a bend is never shared between simultaneous notes, survives merging, and stays inside its note's span after quantization. | Unit | `tests/test_basic_pitch.py`, `tests/test_post_process.py` |
 | **TR-11** | Robustness: Argument Validation | Reject `--bpm 0`, inverted `--min-freq`/`--max-freq`, and out-of-range strengths; report undecodable audio without a traceback. | Integration | `tests/test_cli.py` |
 | **TR-12** | Regression Tripwire | Transcribe each reference recording at 100 BPM; assert note count falls in its expected band and output tempo matches. Marked `slow`. | End-to-End | `tests/test_regression.py` |
@@ -46,7 +46,7 @@ The test matrix maps each requirement from `requirements.md` to specific unit, i
 
 - **Synthetic Audio Generation:** Python scripts using `scipy.signal` to synthesize pure sine waves, harmonic chords, and pitch-swiped sine waves for exact ground-truth testing.
 - **Acoustic Test Clips:** WAV samples in `tests/` (`Fingerpick_mono_44-16.wav`, `Fingerpick_stereo_48-24.wav`, `plektrumpick_mono_44-16.wav`, `plektrumstrum_mono_44-16.wav`). These are **fixtures and must stay tracked in git** — `.gitignore` excludes `*.wav` globally and re-includes `tests/*.wav`, otherwise the end-to-end tests cannot run on a fresh clone. Every `.mid` in `tests/` is generated output and stays ignored.
-- **Benchmark Corpus:** `GuitarSet` dataset audio and annotated MIDI ground truth files. **Not present in this repository** (see TR-09).
+- **Benchmark Corpus:** `GuitarSet` (https://zenodo.org/records/3371780): `annotation.zip` and `audio_mono-mic.zip`, extracted to `data/guitarset/annotation/` and `data/guitarset/audio_mono-mic/`. Not committed (`data/` is gitignored, ~664 MB); see TR-09.
 - **Test Runner:** `pytest`. Tests resolve the interpreter via `sys.executable` and fixture paths relative to `tests/` (see `tests/conftest.py`), so they are not tied to a specific machine or working directory.
   - `pytest -m "not slow"` — fast suite, no full model inference over real audio.
   - `pytest` — everything, including the TR-12 regressions.

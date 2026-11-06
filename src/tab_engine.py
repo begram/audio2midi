@@ -22,6 +22,12 @@ class TabMapper:
     FRET_TRAVEL_WEIGHT = 1.5
     STRING_TRAVEL_WEIGHT = 0.5
 
+    # max_frets=15 is measured, not a guess at neck length. Over 20 GuitarSet tracks, 19-24
+    # frets recovered no matched note (the unassigned rate is identical from 15 up -- the
+    # ~1% of detections above fret 15 match nothing in the reference, so they are
+    # spurious) while string accuracy dropped slightly (0.577 -> 0.567-0.573) and solve time
+    # tripled: every extra fret is another high-neck placement to pick wrongly. Pitches out
+    # of reach fall back to (0, -1) and route to the unassigned track.
     def __init__(self, max_frets=15, max_candidates=64):
         self.max_frets = max_frets
         self.max_candidates = max_candidates

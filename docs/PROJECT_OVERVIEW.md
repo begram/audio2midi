@@ -11,7 +11,7 @@
 - **Language & Runtime:** Python 3.10.x
 - **Audio Processing:** `librosa` (HPSS, spectral loading, RMS envelope), `scipy.signal` (vectorized one-pole 80 Hz high-pass IIR via `lfilter`), `numpy` (<2.0.0)
 - **Deep Learning Transcription Engine:** Spotify `basic-pitch`, `tensorflow` (2.7+)
-- **Post-Processing:** NumPy vectorized quantization, windowed note merging, logarithmic velocity transformation
+- **Post-Processing:** NumPy vectorized quantization, opt-in windowed note merging, logarithmic velocity transformation
 - **Tablature Solver:** Viterbi dynamic programming solver (`TabMapper`) with per-frame position emission cost and polyphonic string collision guard
 - **MIDI Output Engine:** `pretty_midi`, one track per assigned string, with per-note pitch bend contours
 - **Lint, Coverage & CI:** `ruff` (`ruff.toml`), `pytest-cov` (`.coveragerc`, branch mode, `fail_under = 95`), GitHub Actions (`.github/workflows/ci.yml`)
@@ -37,6 +37,12 @@ audio2midi/
 │   └── tasks.md              # Phased implementation plan
 ├── docs/
 │   └── PROJECT_OVERVIEW.md   # This file: architecture & component guide
+├── tools/
+│   ├── evaluate_guitarset.py     # Ground-truth accuracy against GuitarSet (manual)
+│   ├── analyze_transcription.py  # Plausibility sweep over presets on tests/ fixtures
+│   └── engine_cache.py           # Shared, code-aware cache of raw engine output
+├── data/guitarset/           # GuitarSet corpus, downloaded separately (gitignored)
+├── analysis/                 # Generated tool output & caches (gitignored)
 ├── tests/
 │   ├── conftest.py           # Shared fixtures: interpreter, CLI path, audio fixture resolver
 │   ├── test_processor.py     # Unit tests for audio pre-processing & HPSS
@@ -55,7 +61,8 @@ audio2midi/
 ├── requirements.txt          # Runtime dependencies
 ├── requirements-dev.txt      # Runtime + test/lint toolchain
 ├── setup.py                  # Package setup (flat `py_modules` under src/)
-├── GEMINI.md                 # Agent-facing project context
+├── CLAUDE.md                 # Agent-facing project context (source of truth)
+├── GEMINI.md                 # Pointer to CLAUDE.md
 └── README.md                 # User guide & documentation
 ```
 
@@ -66,9 +73,9 @@ audio2midi/
 1. **Audio Pre-processing ([`src/processor.py`](file:///E:/sw_ws/repo1/audio2midi/src/processor.py)):**
    Audio loaded $\rightarrow$ Peak normalized to -1 dB $\rightarrow$ one-pole 80 Hz high-pass filtered $\rightarrow$ Optional HPSS (`librosa.effects.hpss`) $\rightarrow$ RMS-envelope noise gate.
 2. **Inference ([`src/basic_pitch_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/basic_pitch_engine.py)):**
-   Basic Pitch DNN model detects pitch onsets, offsets, amplitudes, and a per-note bend contour, filtered by frequency bounds (80–1400 Hz). Velocity is floored at 1 so a near-silent onset never becomes a note-off.
+   Basic Pitch DNN model detects pitch onsets, offsets, amplitudes, and a per-note bend contour, optionally filtered by frequency bounds (`--freq-bounds`: 80–1400 Hz). Velocity is floored at 1 so a near-silent onset never becomes a note-off.
 3. **Post-Processing ([`src/post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py)):**
-   Notes filtered by duration & velocity $\rightarrow$ Logarithmic dynamic velocity curve applied $\rightarrow$ Windowed same-pitch merging $\rightarrow$ Optional grid quantization (with bend re-timing).
+   Notes filtered by duration & velocity $\rightarrow$ Optional logarithmic velocity curve $\rightarrow$ Optional same-pitch merging (`--merge`) $\rightarrow$ Optional grid quantization (with bend re-timing).
 4. **Tablature Solver ([`src/tab_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/tab_engine.py)):**
    Viterbi solver calculates global minimum energy neck path (Strings 1–6) while enforcing strict non-collision rules for chord notes.
 5. **MIDI Generation ([`src/midi_gen.py`](file:///E:/sw_ws/repo1/audio2midi/src/midi_gen.py)):**

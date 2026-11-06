@@ -2,8 +2,9 @@
 
 > **Status:** this is the original phased plan and is kept as a historical record.
 > Phases 1–6 have landed. For where the code actually stands against the
-> requirements — including the gaps that remain (GuitarSet benchmark, latency and
-> memory verification, `--tuning`, type annotations) — see
+> requirements — including the gaps that remain (the GuitarSet accuracy target, which
+> is now measured but not met; latency and memory verification; `--tuning`; type
+> annotations) — see
 > §6 "Implementation Status" in [`requirements.md`](./requirements.md).
 >
 > Two task descriptions below name things that were built differently: Task 1.1's
