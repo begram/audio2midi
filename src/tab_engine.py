@@ -25,8 +25,9 @@ class TabMapper:
     # max_frets=15 is measured, not a guess at neck length. Over 20 GuitarSet tracks, 19-24
     # frets recovered no matched note (the unassigned rate is identical from 15 up -- the
     # ~1% of detections above fret 15 match nothing in the reference, so they are
-    # spurious) while string accuracy dropped slightly (0.650 -> 0.640-0.645) and solve time
-    # tripled: every extra fret is another high-neck placement to pick wrongly. Pitches out
+    # spurious) while string accuracy dropped slightly (0.650 -> 0.640-0.645; on held-out
+    # players 0.610 -> 0.604 at 19, 0.589 at 24) and solve time tripled: every extra fret is
+    # another high-neck placement to pick wrongly. Pitches out
     # of reach fall back to (0, -1) and route to the unassigned track.
     def __init__(self, max_frets=15, max_candidates=64):
         self.max_frets = max_frets
@@ -265,8 +266,10 @@ class TabMapper:
         PREFERRED_FRET, not the distance of the mean fret. Averaging first lets a
         chord pair a note far down the neck with one far up -- frets 1 and 9 cost
         the same as 5 and 5 -- which no hand can stretch. On 20 GuitarSet tracks
-        that cost chord string accuracy 0.524 against 0.647 per-note, and left the
-        solver below a context-free nearest-to-fret-5 baseline (0.577 vs 0.640).
+        that cost chord string accuracy 0.524 against 0.647 per-note. Held-out players
+        confirm the gain (overall 0.516 -> 0.610, chords 0.491 -> 0.672), though the solver
+        still trails a context-free nearest-to-fret-5 baseline there (0.610 vs 0.644),
+        mostly on single-note lines.
         """
         cost = 0.0
 

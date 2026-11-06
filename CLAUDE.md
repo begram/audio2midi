@@ -47,9 +47,14 @@ Dev toolchain: `.\venv\Scripts\pip install -r requirements-dev.txt`.
 ```
 
 ```powershell
-# Ground-truth accuracy against GuitarSet, writes analysis/guitarset.csv
-.\venv\Scripts\python.exe tools\evaluate_guitarset.py --limit 20
+# Ground-truth accuracy against GuitarSet, writes analysis/guitarset_<split>.csv
+.\venv\Scripts\python.exe tools\evaluate_guitarset.py --limit 20               # dev split (tuning)
+.\venv\Scripts\python.exe tools\evaluate_guitarset.py --split test --limit 0   # held-out confirmation
 ```
+
+GuitarSet is **split by player**: `dev` is players 00–03, `test` is players 04–05 (120 tracks). The
+default is `dev`. Tune and compare settings on `dev` only, and run `test` to confirm a decision,
+never to make one: a setting chosen by looking at test scores makes those scores optimistic.
 
 `tools/evaluate_guitarset.py` is the only thing here that measures **accuracy**. It needs the
 corpus in place (~664 MB, both archives from https://zenodo.org/records/3371780, extracted to

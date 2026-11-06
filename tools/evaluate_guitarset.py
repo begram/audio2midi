@@ -23,9 +23,12 @@ Setup (~664MB, both from https://zenodo.org/records/3371780):
     data/guitarset/annotation/*.jams        <- annotation.zip
     data/guitarset/audio_mono-mic/*.wav     <- audio_mono-mic.zip
 
+Tracks are split by player (see SPLITS): tune on `dev`, confirm on `test`.
+
 Usage:
-    .\\venv\\Scripts\\python.exe tools\\evaluate_guitarset.py --limit 12
+    .\\venv\\Scripts\\python.exe tools\\evaluate_guitarset.py --limit 20
     .\\venv\\Scripts\\python.exe tools\\evaluate_guitarset.py --limit 24 --engine-presets baseline hpss
+    .\\venv\\Scripts\\python.exe tools\\evaluate_guitarset.py --split test --limit 0
 """
 
 import argparse
@@ -65,6 +68,18 @@ ENGINE_PRESETS = {
     "baseline": {},
     "hpss": {"use_hpss": True},
     "freq_bounds": {"min_freq": 80.0, "max_freq": 1400.0},
+}
+
+# Split by player, so test results also show whether tuning carries over to players it never
+# saw. Tune on `dev` only; run `test` to confirm a decision, never to make one -- once a
+# setting is chosen by looking at test scores, those scores stop being an honest estimate.
+# Caveat: decisions made before this split existed (merging off, max_frets=15, the per-note
+# position cost) were measured on 20 tracks spread over all six players, 6 of them from
+# players 04-05. Those 6 are a small part of the 120 test tracks (results without them differ
+# by under 0.01), but the test set is not perfectly unseen for those decisions.
+SPLITS = {
+    "dev": ("00", "01", "02", "03"),
+    "test": ("04", "05"),
 }
 
 # Named for what the CLI does: merging is opt-in via --merge.
@@ -161,10 +176,11 @@ def naive_string_assignment(notes):
     A baseline for `string_accuracy`: on its own that number cannot say whether the
     Viterbi solver is doing well or badly, because many notes are playable on only one
     or two strings and would be assigned correctly by luck. This ignores context,
-    continuity and collisions. It is a harder bar than it looks: with frame-averaged position
-    costs the solver scored below it (0.577 vs 0.640 on 20 tracks). With per-note costs the
-    solver now beats it overall (0.650) and clearly on chords (0.647 vs 0.614), but still
-    trails it slightly on single-note lines (0.653 vs 0.667).
+    continuity and collisions. It is a harder bar than it looks, and on held-out players
+    (test split, 120 tracks) the solver does not yet clear it: 0.610 vs 0.644 overall, level
+    on chords (0.672 vs 0.678) but behind on single-note lines (0.547 vs 0.610). On the 20
+    tuning tracks it had looked ahead (0.650 vs 0.640), which is why decisions are now
+    confirmed on the test split before being trusted.
     """
     mapper = TabMapper()
     out = []
@@ -202,6 +218,7 @@ def evaluate(wav_path, jams_path, engine_name, post_name, use_cache):
 
     return {
         "track": wav_path.stem.replace("_mic", ""),
+        "player": player_of(wav_path),
         "style": "comp" if "_comp" in wav_path.stem else "solo",
         "engine_preset": engine_name,
         "post_preset": post_name,
@@ -221,8 +238,13 @@ def evaluate(wav_path, jams_path, engine_name, post_name, use_cache):
     }
 
 
-def select_tracks(limit):
-    """Deterministic, style-balanced spread rather than the first N files.
+def player_of(wav_path):
+    """GuitarSet file names start with the player's two-digit id, e.g. `03_BN1-129-Eb_comp`."""
+    return wav_path.stem.split("_", 1)[0]
+
+
+def select_tracks(limit, split="dev"):
+    """Deterministic, style-balanced spread over one split, rather than the first N files.
 
     Sorted order alternates `_comp` and `_solo` for each excerpt, so striding the whole
     list by an even step silently yields one style only. The two are very different
@@ -234,6 +256,8 @@ def select_tracks(limit):
             f"no audio in {AUDIO_DIR}. Extract audio_mono-mic.zip from "
             "https://zenodo.org/records/3371780 into that directory."
         )
+    if split != "all":
+        wavs = [w for w in wavs if player_of(w) in SPLITS[split]]
     if limit is None or limit >= len(wavs):
         return wavs
 
@@ -248,14 +272,20 @@ def select_tracks(limit):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--limit", type=int, default=12, help="Tracks to evaluate (0 = all).")
+    parser.add_argument("--split", choices=[*SPLITS, "all"], default="dev",
+                        help="Players to draw from: dev (00-03, for tuning), test (04-05, for "
+                             "confirming a decision), or all. Default: dev.")
+    parser.add_argument("--limit", type=int, default=12,
+                        help="Tracks to evaluate from the split (0 = every track in it).")
     parser.add_argument("--engine-presets", nargs="*", default=["baseline"])
     parser.add_argument("--post-presets", nargs="*", default=list(POST_PRESETS))
     parser.add_argument("--no-cache", action="store_true")
-    parser.add_argument("--out", default=str(OUT_DIR / "guitarset.csv"))
+    parser.add_argument("--out", default=None,
+                        help="CSV path. Default: analysis/guitarset_<split>.csv.")
     args = parser.parse_args()
+    args.out = args.out or str(OUT_DIR / f"guitarset_{args.split}.csv")
 
-    wavs = select_tracks(args.limit or None)
+    wavs = select_tracks(args.limit or None, split=args.split)
     rows = []
     for i, wav in enumerate(wavs, 1):
         jams = ANNOTATION_DIR / f"{wav.stem.replace('_mic', '')}.jams"
@@ -274,7 +304,8 @@ def main():
 
     pd.set_option("display.width", 220)
     pd.set_option("display.max_columns", 60)
-    print(f"\n[+] {len(frame)} rows over {frame['track'].nunique()} tracks -> {out_path}\n")
+    print(f"\n[+] {args.split} split: {len(frame)} rows over {frame['track'].nunique()} tracks "
+          f"-> {out_path}\n")
 
     cols = [
         "ref_notes", "est_notes", "onset_precision", "onset_recall", "onset_f",

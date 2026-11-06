@@ -80,18 +80,41 @@ def test_string_accuracy_ignores_unmatched_notes():
 
 # --- track selection ---------------------------------------------------------------
 
-def test_select_tracks_balances_comping_and_solo(tmp_path, monkeypatch):
-    """Sorted names alternate comp/solo, so a naive stride would pick one style only."""
-    for i in range(6):
-        for style in ("comp", "solo"):
-            (tmp_path / f"0{i}_BN1-129-Eb_{style}_mic.wav").touch()
+@pytest.fixture
+def corpus(tmp_path, monkeypatch):
+    """Two excerpts per player per style, for all six GuitarSet players."""
+    for player in range(6):
+        for excerpt in ("BN1-129-Eb", "Rock1-130-A"):
+            for style in ("comp", "solo"):
+                (tmp_path / f"0{player}_{excerpt}_{style}_mic.wav").touch()
     monkeypatch.setattr(eg, "AUDIO_DIR", tmp_path)
+    return tmp_path
 
+
+def test_select_tracks_balances_comping_and_solo(corpus):
+    """Sorted names alternate comp/solo, so a naive stride would pick one style only."""
     chosen = eg.select_tracks(4)
     styles = [("comp" if "_comp" in w.stem else "solo") for w in chosen]
 
     assert sorted(styles) == ["comp", "comp", "solo", "solo"]
     assert len(set(chosen)) == 4
+
+
+def test_default_split_never_draws_test_players(corpus):
+    """Routine tuning runs must not see the held-out players, even when asking for all tracks."""
+    chosen = eg.select_tracks(None)
+
+    assert {eg.player_of(w) for w in chosen} == {"00", "01", "02", "03"}
+
+
+def test_splits_are_disjoint_and_cover_every_player(corpus):
+    dev = set(eg.select_tracks(None, split="dev"))
+    test = set(eg.select_tracks(None, split="test"))
+    every = set(eg.select_tracks(None, split="all"))
+
+    assert not dev & test
+    assert dev | test == every
+    assert {eg.player_of(w) for w in test} == {"04", "05"}
 
 
 # --- engine output cache -----------------------------------------------------------

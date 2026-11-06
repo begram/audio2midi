@@ -46,7 +46,8 @@ def merge_notes(notes):
 
     **Opt-in via --merge, and measurably harmful as a default.** On 20 GuitarSet tracks
     it cost 17 points of onset recall (0.757 -> 0.588) to gain 3 of precision, taking
-    onset F1 from 0.742 to 0.646 -- and on chord material from 0.704 to 0.524. It stays
+    onset F1 from 0.742 to 0.646 -- and on chord material from 0.704 to 0.524. The held-out
+    test players (04-05, 120 tracks) confirm it: 0.775 -> 0.693, chords 0.711 -> 0.554. It stays
     available because raising precision at the cost of recall is a legitimate preference
     for sparser output.
 

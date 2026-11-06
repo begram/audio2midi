@@ -98,7 +98,8 @@ Run the converter using the virtual environment's Python interpreter:
 `merge_notes` collapses consecutive same-pitch notes, and was written to remove duplicate
 detections. Measured against GuitarSet (20 tracks, ground-truth annotations), enabling it
 costs 17 points of onset recall to gain 3 of precision — onset F1 falls from 0.742 to
-0.646, and on strummed chord material from 0.704 to 0.524.
+0.646, and on strummed chord material from 0.704 to 0.524. The held-out test players
+confirm it: 0.775 → 0.693 overall, 0.711 → 0.554 on chords.
 
 The rule tests the gap between one note's *end* and the next's *start*. That gap stays
 small for a note which sustained until the next time it was played, however far apart the
@@ -113,13 +114,16 @@ is a reasonable preference.
 ### Measuring accuracy
 
 `tools/evaluate_guitarset.py` scores the pipeline against [GuitarSet](https://zenodo.org/records/3371780)
-ground truth (download `annotation.zip` and `audio_mono-mic.zip` into `data/guitarset/`). On 20
-tracks the defaults reach onset F1 0.742, and `--tab` places 65% of matched notes on the right
-string. `tools/analyze_transcription.py` compares presets on the recordings in `tests/`, but those
+ground truth (download `annotation.zip` and `audio_mono-mic.zip` into `data/guitarset/`). Tracks
+are split by player: tune on the `dev` split (players 00–03, the default) and confirm on `test`
+(players 04–05). On the 120 held-out test tracks the defaults reach onset F1 0.775, and `--tab`
+places 61% of matched notes on the right string. That is still below simply putting each note
+nearest fret 5 (64%), mainly on single-note lines. `tools/analyze_transcription.py` compares presets on the recordings in `tests/`, but those
 have no annotations, so its scores rank configurations rather than measure accuracy.
 
 ```powershell
-.\venv\Scripts\python.exe tools\evaluate_guitarset.py --limit 20
+.\venv\Scripts\python.exe tools\evaluate_guitarset.py --limit 20               # tune: dev split
+.\venv\Scripts\python.exe tools\evaluate_guitarset.py --split test --limit 0   # confirm only
 ```
 
 ### Noise gate
