@@ -176,11 +176,10 @@ def naive_string_assignment(notes):
     A baseline for `string_accuracy`: on its own that number cannot say whether the
     Viterbi solver is doing well or badly, because many notes are playable on only one
     or two strings and would be assigned correctly by luck. This ignores context,
-    continuity and collisions. It is a harder bar than it looks, and on held-out players
-    (test split, 120 tracks) the solver does not yet clear it: 0.610 vs 0.644 overall, level
-    on chords (0.672 vs 0.678) but behind on single-note lines (0.547 vs 0.610). On the 20
-    tuning tracks it had looked ahead (0.650 vs 0.640), which is why decisions are now
-    confirmed on the test split before being trusted.
+    continuity and collisions. It is a harder bar than it looks: on held-out players (test
+    split, 120 tracks) the solver trailed it (0.610 vs 0.644) until open strings stopped
+    being free in its cost; it now leads, 0.664 overall and 0.715 vs 0.678 on chords, but
+    is only level on single-note lines (0.612 vs 0.610).
     """
     mapper = TabMapper()
     out = []

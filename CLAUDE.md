@@ -133,6 +133,11 @@ These are load-bearing; reordering silently corrupts output:
 - **Tab emission cost is the mean of per-note distances from `PREFERRED_FRET`**, not the distance of
   the mean fret. Averaging first scores frets 1 + 9 the same as 5 + 5, letting chords stretch beyond
   any hand; measured on GuitarSet it was the main reason chord string accuracy was ~0.52.
+- **Open strings carry a penalty (`OPEN_STRING_PENALTY = 8`), not a bonus.** Without it an open
+  string is free twice over: no position cost (no fretted note), and `_transition_cost` is 0 into
+  or out of a frame without fretted notes, so the hand moves through it for free. The old bonus made
+  the solver take open strings wherever a melody allowed. The value was picked on the dev split
+  (gains plateau from ~8) and confirmed on held-out players: string accuracy 0.610 → 0.664.
 - **`basic_pitch_engine` filters pitches exactly as Basic Pitch bins them**: `round(min)` to
   `round(max)` exclusive, so `--freq-bounds` (80–1400 Hz) keeps MIDI 39–88 (D#2–E6). Don't
   "tighten" it to E2 by switching to floor/ceil; that only makes the filter disagree with the engine.

@@ -18,16 +18,27 @@ class TabMapper:
     TUNING = {6: 40, 5: 45, 4: 50, 3: 55, 2: 59, 1: 64}
 
     PREFERRED_FRET = 5.0
-    OPEN_STRING_BONUS = 3.0
+    # A cost, not a bonus: an open string is otherwise free in both terms. It adds nothing to
+    # the position term (no fretted note), and _transition_cost charges nothing into or out
+    # of a frame without fretted notes, so the hand also "teleports" through it for free.
+    # Earlier revisions added a bonus of 3 on top, and the solver reached for open strings
+    # wherever a melody allowed one. Measured on GuitarSet: on the dev split (players
+    # 00-03, 240 tracks) accuracy rises with the penalty and plateaus from about 8, so 8 was
+    # chosen there; the held-out test players then gave 0.610 -> 0.664 (chords 0.672 ->
+    # 0.715, single-note lines 0.547 -> 0.612), now above the nearest-to-fret-5 baseline
+    # (0.644). At this strength an open string is effectively used only when a note has no
+    # fretted alternative, so the teleport rarely arises; carrying the hand position through
+    # open frames instead was tried and gained nothing on top.
+    OPEN_STRING_PENALTY = 8.0
     FRET_TRAVEL_WEIGHT = 1.5
     STRING_TRAVEL_WEIGHT = 0.5
 
-    # max_frets=15 is measured, not a guess at neck length. Over 20 GuitarSet tracks, 19-24
-    # frets recovered no matched note (the unassigned rate is identical from 15 up -- the
-    # ~1% of detections above fret 15 match nothing in the reference, so they are
-    # spurious) while string accuracy dropped slightly (0.650 -> 0.640-0.645; on held-out
-    # players 0.610 -> 0.604 at 19, 0.589 at 24) and solve time tripled: every extra fret is
-    # another high-neck placement to pick wrongly. Pitches out
+    # max_frets=15 is measured, not a guess at neck length. 19-24 frets recovered no matched
+    # note (the unassigned rate is identical from 15 up -- the ~1% of detections above fret 15
+    # match nothing in the reference, so they are spurious) while string accuracy dropped
+    # (GuitarSet dev split, with the current costs: 0.601 at 15, 0.596 at 19, 0.593 at 24) and
+    # solve time tripled: every extra fret is another high-neck placement to pick wrongly.
+    # 12 scored the same within noise (0.603) but would strand real high-neck notes. Pitches out
     # of reach fall back to (0, -1) and route to the unassigned track.
     def __init__(self, max_frets=15, max_candidates=64):
         self.max_frets = max_frets
@@ -258,18 +269,17 @@ class TabMapper:
     def _frame_position_cost(self, combo):
         """Absolute (emission) cost of a candidate assignment.
 
-        Combines a neck-position preference with an open-string bonus. The
-        bonus is averaged over the frame rather than summed, so it does not
-        grow with polyphony and swamp the position and travel terms.
+        Combines a neck-position preference with an open-string penalty (see
+        OPEN_STRING_PENALTY). The penalty is averaged over the frame rather than
+        summed, so it does not grow with polyphony and swamp the position and
+        travel terms.
 
         The position term is the mean of each fretted note's own distance from
         PREFERRED_FRET, not the distance of the mean fret. Averaging first lets a
         chord pair a note far down the neck with one far up -- frets 1 and 9 cost
         the same as 5 and 5 -- which no hand can stretch. On 20 GuitarSet tracks
-        that cost chord string accuracy 0.524 against 0.647 per-note. Held-out players
-        confirm the gain (overall 0.516 -> 0.610, chords 0.491 -> 0.672), though the solver
-        still trails a context-free nearest-to-fret-5 baseline there (0.610 vs 0.644),
-        mostly on single-note lines.
+        that cost chord string accuracy 0.524 against 0.647 per-note; held-out players
+        confirm the gain (overall 0.516 -> 0.610, chords 0.491 -> 0.672).
         """
         cost = 0.0
 
@@ -281,7 +291,7 @@ class TabMapper:
 
         if combo:
             open_count = sum(1 for s, f in combo if f == 0)
-            cost -= self.OPEN_STRING_BONUS * (open_count / len(combo))
+            cost += self.OPEN_STRING_PENALTY * (open_count / len(combo))
 
         return cost
 
@@ -305,6 +315,6 @@ class TabMapper:
 
         string_dist = abs(avg_curr_string - avg_prev_string)
 
-        # Open-string preference lives in the emission term; counting it here
+        # The open-string penalty lives in the emission term; counting it here
         # too would double-count it once per transition.
         return (fret_dist * self.FRET_TRAVEL_WEIGHT) + (string_dist * self.STRING_TRAVEL_WEIGHT)

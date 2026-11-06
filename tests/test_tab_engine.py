@@ -73,17 +73,40 @@ def test_position_preference_does_not_decay_over_time():
     assert all(n['string'] == 1 for n in assigned)
 
 
-def test_open_string_bonus_does_not_scale_with_polyphony():
-    """A six-note open chord must not out-score everything via summed bonuses."""
+def test_open_string_penalty_does_not_scale_with_polyphony():
+    """A six-note open chord must not be priced out of reach by a summed penalty."""
     mapper = TabMapper()
 
     single_open = ((6, 0),)
     six_open = ((6, 0), (5, 0), (4, 0), (3, 0), (2, 0), (1, 0))
 
-    # Averaged, not summed: both frames get the same per-note bonus.
+    # Averaged, not summed: both frames carry the same per-note penalty.
     assert mapper._frame_position_cost(single_open) == pytest.approx(
         mapper._frame_position_cost(six_open)
     )
+
+
+def test_melody_note_prefers_a_fretted_placement_over_an_open_string():
+    """E4 is open string 1 or fret 5 on string 2; players fret it far more often.
+
+    With open strings free in both cost terms (the old bonus made them better than free),
+    the solver took the open string wherever a melody allowed. That was the main reason it
+    trailed a naive nearest-to-fret-5 placement on single-note lines.
+    """
+    assigned = TabMapper().assign_strings([
+        {'pitch': 64, 'start': 0.0, 'end': 0.5, 'velocity': 100},
+    ])
+
+    assert (assigned[0]['string'], assigned[0]['fret']) == (2, 5)
+
+
+def test_open_only_note_is_still_placed_on_its_open_string():
+    """The penalty steers between placements; it must not leave a note with one option unplaced."""
+    assigned = TabMapper().assign_strings([
+        {'pitch': 40, 'start': 0.0, 'end': 0.5, 'velocity': 100},  # low E: string 6 only
+    ])
+
+    assert (assigned[0]['string'], assigned[0]['fret']) == (6, 0)
 
 
 def test_position_cost_is_per_note_not_of_the_average():
@@ -226,7 +249,7 @@ def test_transition_cost_is_zero_when_a_frame_is_all_open():
 
 
 def test_out_of_range_pitch_costs_nothing():
-    """An unplayable (0, -1) placement must not skew position or bonus terms."""
+    """An unplayable (0, -1) placement must not skew the position or open-string terms."""
     assert TabMapper()._frame_position_cost(((0, -1),)) == 0.0
 
 

@@ -117,8 +117,8 @@ is a reasonable preference.
 ground truth (download `annotation.zip` and `audio_mono-mic.zip` into `data/guitarset/`). Tracks
 are split by player: tune on the `dev` split (players 00–03, the default) and confirm on `test`
 (players 04–05). On the 120 held-out test tracks the defaults reach onset F1 0.775, and `--tab`
-places 61% of matched notes on the right string. That is still below simply putting each note
-nearest fret 5 (64%), mainly on single-note lines. `tools/analyze_transcription.py` compares presets on the recordings in `tests/`, but those
+places 66% of matched notes on the right string, against 64% for simply putting each note
+nearest fret 5 (72% vs 68% on chords; level on single-note lines). `tools/analyze_transcription.py` compares presets on the recordings in `tests/`, but those
 have no annotations, so its scores rank configurations rather than measure accuracy.
 
 ```powershell
