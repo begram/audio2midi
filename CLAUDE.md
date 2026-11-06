@@ -203,7 +203,8 @@ installed: its scripts put `src` on `sys.path` themselves, and only `pytest.ini`
 ## Project conventions
 
 - Specifications live in `specs/` (`requirements.md`, `design.md`, `tasks.md`, `test-plan.md`); keep
-  them current alongside behavioural changes.
+  them current alongside behavioural changes. `specs/roadmap.md` is the forward plan, with each
+  item tagged by importance; its appendix records every measured tuning decision, so add to it.
 - Comments in this codebase explain *why* a non-obvious approach was chosen (see the examples above).
   Match that: prefer a rationale comment over restating the code.
 - GuitarSet benchmarking (`tools/evaluate_guitarset.py`) is a manual tool, not part of the test

@@ -5,7 +5,8 @@
 > requirements — including the gaps that remain (the GuitarSet accuracy target, which
 > is now measured but not met; latency and memory verification; `--tuning`; type
 > annotations) — see
-> §6 "Implementation Status" in [`requirements.md`](./requirements.md).
+> §6 "Implementation Status" in [`requirements.md`](./requirements.md). For what to do next,
+> see [`roadmap.md`](./roadmap.md).
 >
 > Two task descriptions below name things that were built differently: Task 1.1's
 > "Spectral Denoising" shipped as an RMS-envelope `noise_gate`, and Task 5.1's

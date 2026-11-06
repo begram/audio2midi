@@ -34,7 +34,8 @@ audio2midi/
 │   ├── requirements.md       # Requirements specification, learnings & implementation status
 │   ├── design.md             # System design & component architecture
 │   ├── test-plan.md          # Test matrix & coverage targets
-│   └── tasks.md              # Phased implementation plan
+│   ├── tasks.md              # Original phased implementation plan (historical)
+│   └── roadmap.md            # Forward plan, importance-tagged, with the decision record
 ├── docs/
 │   └── PROJECT_OVERVIEW.md   # This file: architecture & component guide
 ├── tools/
