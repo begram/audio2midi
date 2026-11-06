@@ -45,6 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import basic_pitch_engine as bpe  # noqa: E402
+from audio2midi import GUITAR_MAX_FREQ, GUITAR_MIN_FREQ  # noqa: E402
 from engine_cache import transcribe_cached  # noqa: E402
 from post_process import clean_notes, merge_notes  # noqa: E402
 from tab_engine import TabMapper  # noqa: E402
@@ -74,7 +75,7 @@ ENGINE_PRESETS = {
         "min_note_len": bpe.CLEAN_RECORDING_MIN_NOTE_LENGTH_MS,
     },
     "hpss": {"use_hpss": True},
-    "freq_bounds": {"min_freq": 80.0, "max_freq": 1400.0},
+    "freq_bounds": {"min_freq": GUITAR_MIN_FREQ, "max_freq": GUITAR_MAX_FREQ},  # = --freq-bounds
 }
 
 # Split by player, so test results also show whether tuning carries over to players it never

@@ -37,6 +37,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import basic_pitch_engine as bpe  # noqa: E402
+from audio2midi import GUITAR_MAX_FREQ, GUITAR_MIN_FREQ  # noqa: E402
 from engine_cache import transcribe_cached  # noqa: E402
 from midi_gen import generate_midi  # noqa: E402
 from post_process import (  # noqa: E402
@@ -89,8 +90,8 @@ ENGINE_PRESETS = {
     },
     "gate_off": {"noise_threshold": 0.0},
     "hpss": {"use_hpss": True},
-    "freq_bounds": {"min_freq": 80.0, "max_freq": 1400.0},
-    "hpss_freq_bounds": {"use_hpss": True, "min_freq": 80.0, "max_freq": 1400.0},
+    "freq_bounds": {"min_freq": GUITAR_MIN_FREQ, "max_freq": GUITAR_MAX_FREQ},  # = --freq-bounds
+    "hpss_freq_bounds": {"use_hpss": True, "min_freq": GUITAR_MIN_FREQ, "max_freq": GUITAR_MAX_FREQ},
 }
 
 # Post-processing settings. These operate on cached engine output, so sweeping them

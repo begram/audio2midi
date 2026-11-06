@@ -124,6 +124,7 @@ have no annotations, so its scores rank configurations rather than measure accur
 ```powershell
 .\venv\Scripts\python.exe tools\evaluate_guitarset.py --limit 20               # tune: dev split
 .\venv\Scripts\python.exe tools\evaluate_guitarset.py --split test --limit 0   # confirm only
+.\venv\Scripts\python.exe tools\evaluate_guitarset.py --engine-presets baseline tuned_clean   # defaults vs clean-recording thresholds
 ```
 
 ### Clean recordings

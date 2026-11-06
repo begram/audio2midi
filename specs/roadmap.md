@@ -34,7 +34,7 @@ test scores makes those scores optimistic. Record each decision in the appendix.
 | Offset F1, CLI defaults | 0.540 | — |
 | `--tab` string accuracy | 0.664 (naive nearest-to-fret-5 baseline: 0.644) | — |
 | `--tab` string accuracy, single-note lines | 0.612 (naive: 0.610) | — |
-| Fast suite / coverage | 153 tests incl. slow, 99.8% branch coverage of `src/` | ≥ 95% |
+| Test suite / coverage | 153 tests (slow regressions included), 99.8% branch coverage of `src/` | ≥ 95% coverage |
 
 Open requirement gaps (`requirements.md` §6): the accuracy target, latency and memory
 budgets (no harness), `--tuning`, and type annotations.
@@ -235,7 +235,8 @@ other way, but they have no ground truth, so the question could not be settled.
 
 #### D2 · `--program` (steel vs nylon) — **Low** · S
 - **Why:** every track uses General MIDI program 24 (nylon), while the default track name
-  says "Acoustic Guitar" and most acoustic recordings are steel-string (program 25).
+  says only "Acoustic Guitar"; a steel-string guitar is program 25, and there is no way to
+  choose it.
 - **What:** a `--program` option, default unchanged.
 
 #### D3 · Optional MPE output — **Low** · M
@@ -246,12 +247,13 @@ other way, but they have no ground truth, so the question could not be settled.
 ### E — Engineering
 
 #### E1 · Run inference without the `basic-pitch` package — **Medium** · M
-- **Why:** `basic-pitch` 0.4 pins the Python version (it requires TensorFlow on 3.11+) and
-  holds `numpy` below 2. The project only needs its ONNX model file and its note-creation
-  code.
+- **Why:** `basic-pitch` 0.4 pins the Python version in practice: on 3.11+ it requires
+  TensorFlow. The project only needs its ONNX model file and its note-creation code.
+  Separately, the project's own `numpy<2` pin is left over from TensorFlow (basic-pitch
+  itself only asks for `numpy>=1.18`) and has never been tested without.
 - **What:** load the ONNX model with `onnxruntime` directly, depend on (or vendor, licence
-  permitting) the note-creation step, and drop the package. Then test Python 3.11/3.12 and
-  numpy 2.
+  permitting) the note-creation step, and drop the package. Then test Python 3.11/3.12, and
+  numpy 2 with the pin lifted.
 - **Done when:** the suite passes on a newer Python with identical regression and GuitarSet
   numbers.
 

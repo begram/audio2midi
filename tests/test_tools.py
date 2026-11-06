@@ -14,6 +14,26 @@ import pytest
 import engine_cache
 import evaluate_guitarset as eg
 
+# --- presets mirror the CLI ----------------------------------------------------
+
+def test_engine_presets_use_the_cli_and_engine_constants():
+    """A preset that hardcodes its own numbers silently measures something users don't get."""
+    import analyze_transcription as at
+    import audio2midi
+    import basic_pitch_engine as bpe
+
+    freq = {"min_freq": audio2midi.GUITAR_MIN_FREQ, "max_freq": audio2midi.GUITAR_MAX_FREQ}
+    clean = {
+        "onset_threshold": bpe.CLEAN_RECORDING_ONSET_THRESHOLD,
+        "frame_threshold": bpe.CLEAN_RECORDING_FRAME_THRESHOLD,
+        "min_note_len": bpe.CLEAN_RECORDING_MIN_NOTE_LENGTH_MS,
+    }
+    for presets in (eg.ENGINE_PRESETS, at.ENGINE_PRESETS):
+        assert presets["baseline"] == {}  # i.e. the engine's DEFAULT_* values
+        assert presets["freq_bounds"] == freq
+        assert presets["tuned_clean"] == clean
+
+
 # --- GuitarSet string numbering ------------------------------------------------
 
 def test_guitarset_string_numbering_runs_opposite_to_tab_engine():

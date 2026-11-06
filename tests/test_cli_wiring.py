@@ -114,6 +114,16 @@ def test_cli_defaults_are_the_engines_defaults(harness, wav, out):
     assert kwargs['min_note_len'] == bpe.DEFAULT_MIN_NOTE_LENGTH_MS == 127.7
 
 
+def test_help_shows_every_default():
+    """Defaults appear for all options, not only the ones someone remembered to flag."""
+    result = run(['--help'])
+
+    assert result.exit_code == 0
+    for shown in ('default: 0.03', 'default: 10', 'default: 0.005', 'default: 1.0',
+                  'default: 0.5', 'default: 0.3', 'default: 127.7', 'Acoustic Guitar'):
+        assert shown in result.output, f"--help is missing {shown!r}"
+
+
 def test_clean_recording_values_are_accepted_and_forwarded(harness, wav, out):
     """The README's opt-in flags for clean recordings must reach the engine as written."""
     import basic_pitch_engine as bpe

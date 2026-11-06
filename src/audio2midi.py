@@ -20,44 +20,45 @@ from tab_engine import TabMapper
 GUITAR_MIN_FREQ = 80.0
 GUITAR_MAX_FREQ = 1400.0
 
-@click.command()
+# show_default on the command, not per option, so --help shows every default consistently.
+@click.command(context_settings={'show_default': True})
 @click.argument('input_wav', type=click.Path(exists=True, dir_okay=False))
 @click.argument('output_midi', type=click.Path(dir_okay=False))
 @click.option('--bpm', type=click.IntRange(1, 400), required=True,
-              help='Beats Per Minute for the output MIDI.')
+              help='Tempo written to the MIDI file, and the grid --quantize snaps to.')
 @click.option('--quantize', type=click.Choice(['1/4', '1/8', '1/16', '1/32']),
-              help='Optional quantization grid.')
+              help='Snap notes to this grid (note values at --bpm). Off unless given.')
 @click.option('--quantize-strength', type=click.FloatRange(0.0, 1.0), default=1.0,
-              help='Quantization snapping strength (0.0 to 1.0).')
+              help='How far notes move toward the grid; 1.0 snaps fully.')
 @click.option('--min-duration', type=click.FloatRange(min=0.0), default=0.030,
-              help='Minimum note duration in seconds (post-filter).')
+              help='Drop notes shorter than this, in seconds (post-filter).')
 @click.option('--min-note-length', type=click.FloatRange(min=0.0),
-              default=DEFAULT_MIN_NOTE_LENGTH_MS, show_default=True,
+              default=DEFAULT_MIN_NOTE_LENGTH_MS,
               help='Basic Pitch minimum note length in milliseconds (engine-level). For clean '
                    'recordings try 58.')
 @click.option('--velocity-threshold', type=click.IntRange(0, 127), default=10,
-              help='Minimum velocity (0-127) to include a note.')
+              help='Drop notes below this raw velocity, judged before --velocity-curve.')
 @click.option('--velocity-curve', type=click.FloatRange(min=0.0), default=0.0,
-              help='Logarithmic velocity curve factor (e.g. 5.0). 0.0 disables.')
+              help='Logarithmic velocity curve factor k (e.g. 5.0); 0.0 disables.')
 @click.option('--noise-threshold', type=click.FloatRange(0.0, 1.0), default=0.005,
-              help='RMS threshold for the noise gate (0.0 to 1.0). 0.0 disables.')
+              help='RMS threshold for the noise gate; 0.0 disables.')
 @click.option('--hpss', is_flag=True,
               help='Enable Harmonic-Percussive Source Separation to filter pick clicks.')
 @click.option('--freq-bounds', is_flag=True,
               help='Restrict detection to 80-1400 Hz, which keeps MIDI 39-88 (D#2-E6).')
 @click.option('--min-freq', type=click.FloatRange(min=1.0), default=None,
-              help='Explicit minimum frequency bound in Hz.')
+              help='Minimum frequency in Hz; overrides the --freq-bounds minimum.')
 @click.option('--max-freq', type=click.FloatRange(min=1.0), default=None,
-              help='Explicit maximum frequency bound in Hz.')
+              help='Maximum frequency in Hz; overrides the --freq-bounds maximum.')
 @click.option('--onset-threshold', type=click.FloatRange(0.0, 1.0),
-              default=DEFAULT_ONSET_THRESHOLD, show_default=True,
+              default=DEFAULT_ONSET_THRESHOLD,
               help='Basic Pitch onset detection threshold. For clean recordings try 0.6 '
                    '(see README, "Clean recordings").')
 @click.option('--frame-threshold', type=click.FloatRange(0.0, 1.0),
-              default=DEFAULT_FRAME_THRESHOLD, show_default=True,
+              default=DEFAULT_FRAME_THRESHOLD,
               help='Basic Pitch frame confidence threshold. For clean recordings try 0.5.')
 @click.option('--pitch-bend', is_flag=True,
-              help='Extract and write pitch bend events (slides, vibrato).')
+              help='Write each note\'s pitch bend contour (slides, vibrato). Use with --tab.')
 @click.option('--merge/--no-merge', default=False,
               help='Merge consecutive same-pitch notes. Off by default: it removes real '
                    'repeated notes (see post_process.merge_notes).')
@@ -65,7 +66,7 @@ GUITAR_MAX_FREQ = 1400.0
               help='Track name (per-string tracks get " - String N"). Sets the name only; '
                    'the MIDI program is always 24, nylon acoustic guitar.')
 @click.option('--tab', is_flag=True,
-              help='Assign notes to strings (tablature mode).')
+              help='Assign notes to strings 1-6; each string gets its own track and channel.')
 def main(
     input_wav, output_midi, bpm, quantize, quantize_strength,
     min_duration, min_note_length, velocity_threshold, velocity_curve, noise_threshold,
