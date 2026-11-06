@@ -88,8 +88,12 @@ These are load-bearing; reordering silently corrupts output:
 
 1. `quantize_notes` writes `start_ticks`/`end_ticks` but does **not** touch `start`/`end`.
    `ticks_to_seconds` must be called after it, or quantization is a no-op.
-2. `merge_notes` runs before `assign_strings` — the tab solver's collision guard assumes duplicate
-   same-pitch detections have already been merged away.
+2. `merge_notes` (opt-in via `--merge`) runs before `assign_strings`. It is **off by default**:
+   measured against GuitarSet it trades 17 points of onset recall for 3 of precision, because it
+   absorbs notes that merely sustained until the next time the same pitch was played. See its
+   docstring for the full numbers before considering re-enabling it. Since it normally does not
+   run, `_resolve_string_overlaps` must handle duplicate same-pitch detections itself rather than
+   assuming they were merged away.
 3. `clean_notes` runs before `apply_logarithmic_velocity`, so the velocity threshold applies to raw
    engine confidence, not to remapped values.
 
@@ -152,5 +156,5 @@ nothing), and the imports themselves.
   them current alongside behavioural changes.
 - Comments in this codebase explain *why* a non-obvious approach was chosen (see the examples above).
   Match that: prefer a rationale comment over restating the code.
-- Benchmarking against the GuitarSet dataset is a stated goal but is **not implemented** — the
-  recordings in `tests/` are the current regression coverage.
+- GuitarSet benchmarking (`tools/evaluate_guitarset.py`) is a manual tool, not part of the test
+  suite — the recordings in `tests/` remain the automated regression coverage.

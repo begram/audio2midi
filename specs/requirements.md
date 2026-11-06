@@ -102,10 +102,14 @@ strings to fix either:
 1. **More than six simultaneous notes.** At most six can occupy distinct strings.
 2. **Duplicate same-pitch detections where the pitch has one placement.** Low E
    (MIDI 40) is only playable as string 6 / fret 0, so two simultaneous
-   detections of it must share that string. `merge_notes` normally removes such
-   duplicates; they reach the solver when `--no-merge` is combined with `--tab`.
+   detections of it must share that string. `merge_notes` would remove such
+   duplicates, but it is opt-in (`--merge`), so this is the normal path.
 
 In both cases the fallback maximizes the number of notes on distinct strings via
 exact bipartite matching, then places any remainder on its best placement. A
 residual collision is therefore a signal that the *detection* is not physically
 playable as transcribed, not that the solver failed.
+
+Such a residual collision does not survive into the output: `_resolve_string_overlaps`
+withdraws the string assignment of a note that cannot sound, routing it to the
+unassigned track. No two simultaneous notes ever share a string.

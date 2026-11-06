@@ -69,9 +69,10 @@ ENGINE_PRESETS = {
     "freq_bounds": {"min_freq": 80.0, "max_freq": 1400.0},
 }
 
+# Named for what the CLI does: merging is opt-in via --merge.
 POST_PRESETS = {
-    "default": {"merge": True},
-    "no_merge": {"merge": False},
+    "cli_default": {"merge": False},
+    "merge": {"merge": True},
 }
 
 

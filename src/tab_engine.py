@@ -208,7 +208,7 @@ class TabMapper:
 
         A residual collision means the frame is physically unplayable as
         detected: more than six simultaneous voices, or duplicate same-pitch
-        detections that `merge_notes` would normally remove.
+        detections (`merge_notes` would remove those, but it is opt-in).
         """
         string_to_note = {}
 

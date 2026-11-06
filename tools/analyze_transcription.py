@@ -90,9 +90,10 @@ ENGINE_PRESETS = {
 
 # Post-processing settings. These operate on cached engine output, so sweeping them
 # costs nothing but metric computation.
+# Named for what the CLI does: merging is opt-in via --merge.
 POST_PRESETS = {
-    "default": {},
-    "no_merge": {"merge": False},
+    "cli_default": {},
+    "merge": {"merge": True},
     "quantize_1_16": {"quantize": "1/16"},
 }
 
@@ -125,7 +126,7 @@ def transcribe_cached(wav_path, engine_params, use_cache=True):
     return notes
 
 
-def post_process(notes, bpm, merge=True, quantize=None):
+def post_process(notes, bpm, merge=False, quantize=None):
     """Mirrors the CLI's post-processing order, which is load-bearing."""
     notes = [dict(n) for n in notes]
     notes = clean_notes(notes)

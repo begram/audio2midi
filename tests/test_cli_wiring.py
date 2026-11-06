@@ -138,19 +138,29 @@ def test_inverted_explicit_bounds_are_rejected(harness, wav, out):
 
 # --- pipeline stage wiring --------------------------------------------------
 
-def test_merge_is_applied_by_default_and_skipped_with_no_merge(harness, wav, out):
-    """Two chattering same-pitch notes collapse unless --no-merge is given."""
-    chatter = [
+def test_merge_is_off_by_default_and_applied_with_merge(harness, wav, out):
+    """Merging is opt-in: it absorbs repeated notes, so the default must keep both.
+
+    The pair below is what the rule catches -- a note sustaining until the next time the
+    same pitch is played. GuitarSet shows those are usually genuine repeats, so merging
+    them costs more recall than the precision it buys.
+    """
+    repeated = [
         {'pitch': 60, 'start': 0.00, 'end': 0.50, 'velocity': 100},
         {'pitch': 60, 'start': 0.45, 'end': 1.00, 'velocity': 90},
         {'pitch': 62, 'start': 0.00, 'end': 1.00, 'velocity': 90},
     ]
 
-    harness.set_notes(list(chatter))
+    harness.set_notes(list(repeated))
     assert run([wav, out, '--bpm', '120']).exit_code == 0
+    assert len(harness.written_notes) == 3
+
+    harness.set_notes(list(repeated))
+    assert run([wav, out, '--bpm', '120', '--merge']).exit_code == 0
     assert len(harness.written_notes) == 2
 
-    harness.set_notes(list(chatter))
+    # --no-merge still parses, so existing invocations keep working.
+    harness.set_notes(list(repeated))
     assert run([wav, out, '--bpm', '120', '--no-merge']).exit_code == 0
     assert len(harness.written_notes) == 3
 

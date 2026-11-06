@@ -77,7 +77,7 @@ Run the converter using the virtual environment's Python interpreter:
 | `--max-freq` | Explicit maximum frequency bound in Hz (overrides `--freq-bounds`). | `--max-freq 1400` |
 | `--onset-threshold` | Basic Pitch onset detection threshold (`0.0` to `1.0`). | `--onset-threshold 0.5` |
 | `--frame-threshold` | Basic Pitch frame confidence threshold (`0.0` to `1.0`). | `--frame-threshold 0.3` |
-| `--no-merge` | Disable merging of overlapping identical pitches. | `--no-merge` |
+| `--merge` / `--no-merge` | Merge consecutive same-pitch notes. **Off by default** — it absorbs genuine repeated notes, costing more recall than the precision it gains (see below). | `--merge` |
 | `--instrument` | Set the name of the MIDI instrument track. | `--instrument "Acoustic Guitar"` |
 
 > `--min-duration` (seconds, applied after transcription) and `--min-note-length`
@@ -92,6 +92,23 @@ Run the converter using the virtual environment's Python interpreter:
 - **Engine:** Spotify's `basic-pitch` ML inference model with configurable frequency bounds.
 - **Tablature Solver:** Viterbi dynamic programming path solver with a per-frame neck-position emission cost, physical travel transition cost, and polyphonic string collision prevention.
 - **MIDI Generation:** `pretty_midi`, one track (and channel) per assigned string, with per-note pitch bend contours recentred at each note's end.
+
+### Why note merging is off by default
+
+`merge_notes` collapses consecutive same-pitch notes, and was written to remove duplicate
+detections. Measured against GuitarSet (20 tracks, ground-truth annotations), enabling it
+costs 17 points of onset recall to gain 3 of precision — onset F1 falls from 0.742 to
+0.646, and on strummed chord material from 0.704 to 0.524.
+
+The rule tests the gap between one note's *end* and the next's *start*. That gap stays
+small for a note which sustained until the next time it was played, however far apart the
+two onsets are, so repeated notes get absorbed. Rules keyed on onset separation instead
+score identically to no merging at all, because Basic Pitch's own `--min-note-length`
+(127.7 ms) already keeps same-pitch onsets further apart than that — the duplicates this
+was meant to catch never reach it.
+
+It remains available via `--merge` for sparser output, since trading recall for precision
+is a reasonable preference.
 
 ### Noise gate
 

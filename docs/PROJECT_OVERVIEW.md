@@ -112,6 +112,10 @@ scanning every note, so cost is bounded by window density rather than total note
 (20 000 notes in ~0.37 s). Earlier revisions described this as a sweep-line; it is not
 one, and the unused event list that hinted at that design has been removed.
 
+Merging is opt-in (`--merge`). Against GuitarSet it lowered onset F1 from 0.742 to 0.646:
+the end-to-start gap test also absorbs notes that simply sustained until the same pitch was
+played again, so it removes genuine repeats. See the README for the full measurement.
+
 ### Per-string tracks vs. MPE
 
 `--tab` places each assigned string on its own `pretty_midi.Instrument`, which becomes

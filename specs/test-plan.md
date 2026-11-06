@@ -22,7 +22,7 @@ The test matrix maps each requirement from `requirements.md` to specific unit, i
 | **TR-14** | FR-02: High-Pass Response | Verify sub-cutoff content is attenuated, gain is monotonic across the cutoff, `y[0] == x[0]`, and the vectorized IIR matches the direct recurrence sample-for-sample. | Unit | `tests/test_processor.py` |
 | **TR-15** | Input Format Support | Load 16-bit/44.1 kHz, 24-bit/48 kHz and 24-bit/96 kHz stereo WAVs; verify each is down-mixed to mono and resampled to `target_sr`. | Unit | `tests/test_processor.py` |
 | **TR-16** | FR-06: Collision Fallback | For frames with no collision-free assignment, verify the number of colliding notes is the physical minimum (six strings used before any doubling) and that a single-placement pitch is never displaced. | Unit | `tests/test_tab_engine.py` |
-| **TR-17** | CLI Option Wiring | Verify `--freq-bounds` / `--min-freq` / `--max-freq` resolution, `--pitch-bend`, `--no-merge`, `--quantize`, `--tab`, `--velocity-curve`, `--bpm` and `--instrument` all reach the correct pipeline stage. | Integration | `tests/test_cli_wiring.py` |
+| **TR-17** | CLI Option Wiring | Verify `--freq-bounds` / `--min-freq` / `--max-freq` resolution, `--pitch-bend`, `--merge` / `--no-merge` (off by default), `--quantize`, `--tab`, `--velocity-curve`, `--bpm` and `--instrument` all reach the correct pipeline stage. | Integration | `tests/test_cli_wiring.py` |
 | **TR-18** | Resource Hygiene | Verify the scratch WAV handed to the model is deleted after both a successful run and a failed one. | Unit | `tests/test_basic_pitch.py` |
 
 ---

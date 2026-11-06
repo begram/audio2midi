@@ -48,8 +48,9 @@ GUITAR_MAX_FREQ = 1400.0
               help='Basic Pitch frame confidence threshold.')
 @click.option('--pitch-bend', is_flag=True,
               help='Extract and write pitch bend events (slides, vibrato).')
-@click.option('--no-merge', is_flag=True,
-              help='Disable merging of overlapping identical pitches.')
+@click.option('--merge/--no-merge', default=False,
+              help='Merge consecutive same-pitch notes. Off by default: it removes real '
+                   'repeated notes (see post_process.merge_notes).')
 @click.option('--instrument', default='Acoustic Guitar',
               help='Instrument name for MIDI track.')
 @click.option('--tab', is_flag=True,
@@ -58,7 +59,7 @@ def main(
     input_wav, output_midi, bpm, quantize, quantize_strength,
     min_duration, min_note_length, velocity_threshold, velocity_curve, noise_threshold,
     hpss, freq_bounds, min_freq, max_freq, onset_threshold, frame_threshold,
-    pitch_bend, no_merge, instrument, tab
+    pitch_bend, merge, instrument, tab
 ):
     """Polyphonic Guitar-to-MIDI Converter"""
     eff_min_freq = min_freq if min_freq is not None else (GUITAR_MIN_FREQ if freq_bounds else None)
@@ -102,7 +103,7 @@ def main(
         click.echo(f"[*] Applying logarithmic velocity curve (k={velocity_curve})...")
         notes = apply_logarithmic_velocity(notes, curvature=velocity_curve)
 
-    if not no_merge:
+    if merge:
         notes = merge_notes(notes)
     click.echo(f"[*] Resulting {len(notes)} unique note events.")
 

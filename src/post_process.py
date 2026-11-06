@@ -42,12 +42,26 @@ def apply_logarithmic_velocity(notes, curvature=5.0):
     return notes
 
 def merge_notes(notes):
-    """
-    Merges consecutive same-pitch notes that overlap (or nearly touch) while
-    another pitch is sounding through them.
+    """Merges consecutive same-pitch notes that nearly touch while another pitch sounds.
 
-    O(N log N): the concurrency check binary-searches the start-sorted note
-    list for the relevant time window instead of scanning every note.
+    **Opt-in via --merge, and measurably harmful as a default.** On 20 GuitarSet tracks
+    it cost 17 points of onset recall (0.757 -> 0.588) to gain 3 of precision, taking
+    onset F1 from 0.742 to 0.646 -- and on chord material from 0.704 to 0.524. It stays
+    available because raising precision at the cost of recall is a legitimate preference
+    for sparser output.
+
+    The reason it removes real notes: the test below keys off the gap between one note's
+    *end* and the next's *start*, which stays under the threshold for a note that
+    sustained until the next time it was played, however far apart the two onsets are. So
+    a repeated note is absorbed into its predecessor.
+
+    Rules keyed on onset separation instead score identically to no merging at all,
+    because Basic Pitch's own minimum note length (127.7ms by default) already guarantees
+    same-pitch onsets are further apart than that. The duplicate detections this was
+    written to remove do not reach it.
+
+    O(N log N): the concurrency check binary-searches the start-sorted note list for the
+    relevant time window instead of scanning every note.
     """
     if not notes:
         return []
