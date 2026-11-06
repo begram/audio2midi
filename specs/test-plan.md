@@ -81,7 +81,7 @@ The test matrix maps each requirement from `requirements.md` to specific unit, i
 
 ## 5. Mocking & Isolation Strategy
 
-To ensure fast unit test execution without loading heavy TensorFlow neural networks on every test run:
+To ensure fast unit test execution without running Basic Pitch inference on every test run:
 - **Direct patching:** `tests/test_basic_pitch.py` patches `basic_pitch_engine.predict` with `unittest.mock` and predefined note event tuples, including per-note bend contours. (Earlier revisions named a `MockTranscriptionEngine` class; no such class exists — the `TranscriptionEngine` ABC in `src/engine_base.py` is the only abstraction, and it has one implementation.)
 - **Pure-function tests:** `post_process.py`, `tab_engine.py`, and `midi_gen.py` operate on plain note dicts, so their tests construct input directly and need no engine mock at all.
 - **In-process CLI harness:** `tests/test_cli_wiring.py` drives `audio2midi.main` with `click.testing.CliRunner` while patching `preprocess_pipeline`, `BasicPitchEngine` and `generate_midi`. This verifies orchestration — option resolution, stage ordering, error paths — with no audio decoding or inference, and unlike the subprocess tests it is visible to coverage.

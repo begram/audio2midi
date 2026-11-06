@@ -18,7 +18,7 @@ This tool converts polyphonic acoustic guitar recordings (`.wav`) into high-fide
 ## Installation
 
 ### Prerequisites
-- **Python 3.10.x** (Required for TensorFlow compatibility).
+- **Python 3.10.x** (`basic-pitch` needs TensorFlow on 3.11+; on 3.10 it runs on the much lighter ONNX runtime).
 
 ### Setup
 1. Open a terminal in the project directory.

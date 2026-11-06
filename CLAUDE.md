@@ -4,10 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Environment
 
-- **Python 3.10.x is mandatory** — TensorFlow / `basic-pitch` do not support 3.11+.
+- **Python 3.10.x is mandatory.** Inference runs on ONNX (`basic_pitch_engine.MODEL_PATH`), and
+  TensorFlow is not installed. But `basic-pitch` 0.4 makes TensorFlow a hard dependency on
+  Python 3.11+, so moving off 3.10 would pull it back in.
 - The venv lives at `.\venv\`. Always invoke `.\venv\Scripts\python.exe` rather than a bare `python`;
   the system interpreter is a different (incompatible) version. Never edit anything under `venv/`.
-- `numpy` is pinned `<2.0.0` for TensorFlow compatibility.
+- `numpy` is pinned `<2.0.0`. The pin dates from TensorFlow, which is gone; lifting it is untested
+  (librosa/numba/onnxruntime under numpy 2), so treat that as its own change.
+- Don't reinstall TensorFlow: `basic-pitch` prefers it whenever it can be imported, and even an
+  empty leftover `site-packages/tensorflow` folder makes `import basic_pitch.inference` fail
+  looking for `tensorflow.lite`.
 
 ## Commands
 

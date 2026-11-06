@@ -153,6 +153,17 @@ def test_basic_pitch_unbounded_range_keeps_extreme_pitches():
 
 # --- temp file lifecycle ----------------------------------------------------
 
+def test_inference_is_pinned_to_the_onnx_model():
+    """basic-pitch otherwise picks a backend by what is importable, which varies by machine."""
+    mock_predict = MagicMock(return_value=({}, None, []))
+    with patch('basic_pitch_engine.predict', mock_predict):
+        BasicPitchEngine().transcribe(np.zeros(1024, dtype=np.float32), sr=22050)
+
+    model_path = mock_predict.call_args.kwargs['model_or_model_path']
+    assert str(model_path).endswith('.onnx')
+    assert os.path.exists(model_path), "ONNX model missing: install basic-pitch[onnx]"
+
+
 def test_temp_wav_is_removed_after_success():
     """The scratch WAV handed to the model must not survive the call."""
     seen = {}

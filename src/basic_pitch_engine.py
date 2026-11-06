@@ -4,9 +4,18 @@ import tempfile
 import librosa
 import numpy as np
 import soundfile as sf
+from basic_pitch import FilenameSuffix, build_icassp_2022_model_path
 from basic_pitch.inference import predict
 
 from engine_base import TranscriptionEngine
+
+# Pinned to the ONNX export of the model. Left to its default, basic-pitch picks whichever
+# runtime happens to be importable (TensorFlow first), and its own dependencies install a
+# different one per platform -- onnxruntime on Windows, tflite-runtime on Linux -- so the
+# same command could run different backends on different machines. The ONNX model gives
+# note-for-note identical output to the TensorFlow SavedModel on every fixture, and
+# onnxruntime is ~1 GB lighter than TensorFlow.
+MODEL_PATH = build_icassp_2022_model_path(FilenameSuffix.onnx)
 
 # Basic Pitch emits per-note bend contours in units of 1/3 semitone; MIDI pitch
 # bend uses 4096 ticks per semitone over a 14-bit signed range.
@@ -58,6 +67,7 @@ class BasicPitchEngine(TranscriptionEngine):
         try:
             _model_output, _midi_data, note_events = predict(
                 audio_path=tmp_path,
+                model_or_model_path=MODEL_PATH,
                 onset_threshold=onset_threshold,
                 frame_threshold=frame_threshold,
                 minimum_note_length=min_note_len,

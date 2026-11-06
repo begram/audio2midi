@@ -10,7 +10,7 @@
 
 - **Language & Runtime:** Python 3.10.x
 - **Audio Processing:** `librosa` (HPSS, spectral loading, RMS envelope), `scipy.signal` (vectorized one-pole 80 Hz high-pass IIR via `lfilter`), `numpy` (<2.0.0)
-- **Deep Learning Transcription Engine:** Spotify `basic-pitch`, `tensorflow` (2.7+)
+- **Deep Learning Transcription Engine:** Spotify `basic-pitch` (ONNX model on `onnxruntime`; no TensorFlow)
 - **Post-Processing:** NumPy vectorized quantization, opt-in windowed note merging, logarithmic velocity transformation
 - **Tablature Solver:** Viterbi dynamic programming solver (`TabMapper`) with per-frame position emission cost and polyphonic string collision guard
 - **MIDI Output Engine:** `pretty_midi`, one track per assigned string, with per-note pitch bend contours

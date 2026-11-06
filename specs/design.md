@@ -80,10 +80,10 @@ graph TD
 
 - **Language:** Python 3.10.x
 - **Pre-processing:** `librosa` (0.10+), `scipy.signal`, `numpy` (<2.0.0)
-- **ML Engine:** `basic-pitch` (Spotify), `tensorflow` (2.7+)
-- **MIDI Output:** `pretty_midi`, `mido`
+- **ML Engine:** `basic-pitch` (Spotify) 0.4+, running its ONNX model on `onnxruntime`. The model is pinned in `basic_pitch_engine.MODEL_PATH`, and TensorFlow is not a dependency: the ONNX export gave note-for-note identical output to the TensorFlow SavedModel on every fixture.
+- **MIDI Output:** `pretty_midi`
 - **CLI Framework:** `click` (numeric options constrained with `IntRange`/`FloatRange`)
-- **Testing & Benchmarking:** `pytest`, `pytest-mock`
+- **Testing & Benchmarking:** `pytest` (mocks via `unittest.mock`), `pytest-cov`, `mir_eval`, `pandas`
 - **Lint & CI:** `ruff` (`ruff.toml`), GitHub Actions (`.github/workflows/ci.yml`) running lint plus the `not slow` suite with a branch-coverage gate (`.coveragerc`, `fail_under = 95`)
 - **Packaging:** `setup.py` with flat `py_modules` under `src/`. `find_packages(where="src")` returns nothing here because `src/` holds modules rather than a package, and would install no code at all.
 

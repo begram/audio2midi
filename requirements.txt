@@ -1,13 +1,12 @@
 # Runtime dependencies. For the test/lint toolchain see requirements-dev.txt.
 
-# Core Transcription Engine
-basic-pitch>=0.2.0
-tensorflow>=2.7.0; platform_system != "Darwin" or platform_machine != "arm64"
-tensorflow-macos>=2.7.0; platform_system == "Darwin" and platform_machine == "arm64"
+# Core Transcription Engine. The [onnx] extra supplies onnxruntime on every platform;
+# basic_pitch_engine pins the ONNX model, so TensorFlow is not needed. (0.4 is the first
+# release whose ONNX export we have verified against the TensorFlow model.)
+basic-pitch[onnx]>=0.4.0
 
 # Audio Processing
 librosa>=0.9.0
-pydub>=0.25.1
 scipy>=1.7.0
 numpy<2.0.0
 # Imported directly by basic_pitch_engine to hand the engine a temp WAV. It also arrives
@@ -16,7 +15,6 @@ soundfile>=0.10.0
 
 # MIDI Manipulation
 pretty_midi>=0.2.9
-mido>=1.2.10
 
 # CLI & UX
 click>=8.0.0
