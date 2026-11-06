@@ -64,13 +64,13 @@ def test_generate_midi_deduplicates_redundant_bends(tmp_path):
     assert [pb.pitch for pb in inst.pitch_bends] == [512, 900, 0]
 
 
-def test_generate_midi_accepts_tuple_form_bends(tmp_path):
-    """Bends may also arrive as (time, value) tuples rather than dicts."""
-    midi_path = os.path.join(tmp_path, "tuple_bends.mid")
+def test_generate_midi_writes_contract_form_bends(tmp_path):
+    """Bends use the engine_base contract: {'pitch': ticks, 'time': seconds}."""
+    midi_path = os.path.join(tmp_path, "dict_bends.mid")
 
     notes = [{
         'pitch': 60, 'start': 0.0, 'end': 1.0, 'velocity': 100, 'string': 4,
-        'pitch_bends': [(0.2, 512), (0.6, 1024)],
+        'pitch_bends': [{'pitch': 512, 'time': 0.2}, {'pitch': 1024, 'time': 0.6}],
     }]
 
     generate_midi(notes, bpm=120, output_path=midi_path)

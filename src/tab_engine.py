@@ -4,8 +4,9 @@ import numpy as np
 
 # Shortest gap between two onsets that can be a genuine re-pluck of one string. Even
 # tremolo picking does not repeat a string faster than this, so a closer pair is two
-# voices the solver could not separate, not one string played twice. Matches
-# MERGE_GAP_SECONDS in post_process, which treats the same span as indistinguishable.
+# voices the solver could not separate, not one string played twice. This is an onset
+# separation; MERGE_GAP_SECONDS in post_process shares the value but measures the gap from
+# one note's end to the next's start, which is a different (and less reliable) test.
 MIN_REPLUCK_SECONDS = 0.050
 
 

@@ -56,12 +56,8 @@ def generate_midi(notes, bpm, output_path, instrument_name='Acoustic Guitar'):
         # Write pitch bend events if present
         pitch_bends = n.get('pitch_bends', [])
         for pb in pitch_bends:
-            if isinstance(pb, dict):
-                pb_val = int(pb['pitch'])
-                pb_time = float(pb['time'])
-            else:
-                pb_time, pb_val = float(pb[0]), int(pb[1])
-            pb_val = max(PITCH_BEND_MIN, min(PITCH_BEND_MAX, pb_val))
+            pb_val = max(PITCH_BEND_MIN, min(PITCH_BEND_MAX, int(pb['pitch'])))
+            pb_time = float(pb['time'])
             target_inst.pitch_bends.append(pretty_midi.PitchBend(pitch=pb_val, time=pb_time))
 
         if pitch_bends:

@@ -24,8 +24,6 @@ Usage:
 """
 
 import argparse
-import hashlib
-import json
 import sys
 from pathlib import Path
 
@@ -38,7 +36,7 @@ import pretty_midi
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from basic_pitch_engine import BasicPitchEngine  # noqa: E402
+from engine_cache import transcribe_cached  # noqa: E402
 from midi_gen import generate_midi  # noqa: E402
 from post_process import (  # noqa: E402
     clean_notes,
@@ -46,7 +44,7 @@ from post_process import (  # noqa: E402
     quantize_notes,
     ticks_to_seconds,
 )
-from processor import load_audio, preprocess_pipeline  # noqa: E402
+from processor import load_audio  # noqa: E402
 from tab_engine import TabMapper  # noqa: E402
 
 FIXTURE_DIR = REPO_ROOT / "tests"
@@ -101,30 +99,6 @@ POST_PRESETS = {
 # --------------------------------------------------------------------------------------
 # pipeline
 # --------------------------------------------------------------------------------------
-
-def transcribe_cached(wav_path, engine_params, use_cache=True):
-    """Runs preprocessing + inference, caching raw engine output keyed by parameters."""
-    preprocess_keys = {"noise_threshold", "use_hpss"}
-    pre_params = {k: v for k, v in engine_params.items() if k in preprocess_keys}
-    infer_params = {k: v for k, v in engine_params.items() if k not in preprocess_keys}
-
-    payload = json.dumps(
-        {"wav": wav_path.name, "pre": pre_params, "infer": infer_params}, sort_keys=True
-    )
-    key = hashlib.sha1(payload.encode()).hexdigest()[:12]
-    cache_path = CACHE_DIR / f"{wav_path.stem}__{key}.json"
-
-    if use_cache and cache_path.exists():
-        return json.loads(cache_path.read_text())
-
-    audio, sr = preprocess_pipeline(str(wav_path), **pre_params)
-    engine = BasicPitchEngine()
-    notes = engine.transcribe(audio, sr, **infer_params)
-
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    cache_path.write_text(json.dumps(notes))
-    return notes
-
 
 def post_process(notes, bpm, merge=False, quantize=None):
     """Mirrors the CLI's post-processing order, which is load-bearing."""
@@ -191,10 +165,13 @@ def oversized_events(notes):
 
 
 def chatter_rate(notes, gap=0.05):
-    """Fraction of notes that re-onset the same pitch almost immediately.
+    """Fraction of notes followed by the same pitch within `gap` of their *end*.
 
-    A real re-pluck of the same string needs the player to get back to it; a gap this
-    small is usually the engine splitting one sustained note in two.
+    This is the test `merge_notes` uses, and GuitarSet showed it mostly flags genuine
+    repeats: a note that sustains until the same pitch is played again leaves a small
+    end-to-start gap however far apart the onsets are. So a high value means "many
+    legato repeats", not "many engine splits" -- read it as a measure of what `--merge`
+    would absorb, and never minimise it on its own.
     """
     if not notes:
         return 0.0
@@ -357,7 +334,7 @@ def analyze(wav_path, engine_name, post_name, bpm, reference, use_cache):
     engine_params = ENGINE_PRESETS[engine_name]
     post_params = POST_PRESETS[post_name]
 
-    raw_notes = transcribe_cached(wav_path, engine_params, use_cache=use_cache)
+    raw_notes = transcribe_cached(wav_path, engine_params, CACHE_DIR, use_cache=use_cache)
     post_notes = post_process(raw_notes, bpm, **post_params)
 
     # Every metric is computed on this list, which is also what the MIDI is written from.

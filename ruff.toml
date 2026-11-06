@@ -1,5 +1,8 @@
 line-length = 110
 target-version = "py310"
+# The flat modules in src/ and tools/ are imported without a package prefix; listing both
+# keeps isort from filing tools' own helpers (engine_cache) as third-party.
+src = [".", "src", "tools"]
 
 [lint]
 select = ["E", "F", "W", "I", "UP", "B"]

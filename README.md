@@ -7,7 +7,7 @@ This tool converts polyphonic acoustic guitar recordings (`.wav`) into high-fide
 - **High-Resolution Audio:** Supports **16-bit** and **24-bit** WAV files at sample rates of 44.1kHz, 48kHz, and 96kHz.
 - **Harmonic/Percussive Source Separation (HPSS):** Optional `--hpss` pre-filtering to eliminate pick attack transients and prevent false-positive phantom notes.
 - **Frequency Bounding:** Restrict detection to standard acoustic guitar frequencies (80 Hz to 1,400 Hz, E2–E6) using `--freq-bounds`.
-- **Expressive Pitch Bends:** Per-note bend contours (bends, vibrato, slides) via `--pitch-bend`, taken from each note's own contour so one string's bend is never copied onto its neighbours.
+- **Expressive Pitch Bends:** Per-note bend contours (bends, vibrato, slides) via `--pitch-bend`, taken from each note's own contour. Combine with `--tab`: pitch bend is a channel-wide MIDI message, so only per-string channels keep one string's bend off its neighbours. Without `--tab` all notes share a channel and the CLI warns about it.
 - **Logarithmic Perceptual Velocity:** Optional `--velocity-curve` for dynamic loudness response matching human hearing.
 - **Viterbi Tablature & Per-String Channels:** Global dynamic programming solver for string assignment (Strings 1–6) with strict polyphonic chord string collision guards using `--tab`. Each string becomes its own MIDI track/channel, so per-note bends do not collide.
 - **Quantization & Humanization:** Grid quantization with partial `--quantize-strength` snapping (e.g. 80% strength).

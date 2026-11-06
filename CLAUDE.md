@@ -54,8 +54,10 @@ MIREX conventions via `mir_eval` (50 ms onset window, 50 cent pitch tolerance). 
 annotation `data_source` runs 0 (low E) to 5 (high e), the opposite of `tab_engine`'s 6-to-1
 numbering, and reference pitches are continuous f0 estimates rather than integers.
 
-`tools/analyze_transcription.py` caches raw engine output under `analysis/cache/`, so only
-preprocessing/engine preset changes pay for inference; post-processing presets re-sweep for free.
+`tools/analyze_transcription.py` caches raw engine output under `analysis/cache/` (via
+`tools/engine_cache.py`, whose key also hashes `processor.py`, `basic_pitch_engine.py` and the
+`basic-pitch` version, so editing a default invalidates it), so only preprocessing/engine changes
+pay for inference; post-processing presets re-sweep for free.
 Its metrics are plausibility and self-consistency scores, **not** accuracy — there are no ground-truth
 annotations for the fixtures, so the numbers only rank configurations against each other. Real
 precision/recall needs annotated data (GuitarSet, which also carries the per-string labels required
@@ -106,7 +108,9 @@ These are load-bearing; reordering silently corrupts output:
 - **Pitch bends come from each note's own contour** (`note_events[i][4]`), never from time-window
   matching. Window matching copies one string's bend onto every simultaneous note.
 - **One MIDI track/channel per string** (`midi_gen`). Pitch bend is a channel-level message, so
-  sharing a channel across strings makes per-note bends collide. `_clean_bends` dedupes repeats and
+  sharing a channel across strings makes per-note bends collide. Without `--tab` that sharing is
+  unavoidable (everything lands on the unassigned track), so the CLI warns when `--pitch-bend` is
+  used alone. `_clean_bends` dedupes repeats and
   each bent note is recentred to 0 at its end so bends don't bleed forward.
 - **`merge_notes` concatenates the absorbed note's bend contour** rather than dropping it, and
   `ticks_to_seconds` retimes bends onto the quantized span — bends left at pre-quantization absolute

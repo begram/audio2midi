@@ -71,6 +71,13 @@ def main(
             param_hint='--min-freq / --max-freq'
         )
 
+    if pitch_bend and not tab:
+        # Pitch bend is a channel message. Without string assignment every note shares
+        # one channel, so a bend on one note also bends everything sounding with it.
+        click.echo("[!] --pitch-bend without --tab writes all notes to one MIDI channel: "
+                   "a bend on one note also bends any note sounding at the same time. "
+                   "Add --tab for per-string bends.", err=True)
+
     click.echo(f"[*] Processing: {input_wav}")
 
     click.echo("[*] Pre-processing audio...")
@@ -97,15 +104,16 @@ def main(
     )
     click.echo(f"[*] Detected {len(notes)} notes.")
 
-    click.echo("[*] Cleaning and merging notes...")
+    click.echo("[*] Cleaning notes...")
     notes = clean_notes(notes, min_duration=min_duration, velocity_threshold=velocity_threshold)
     if velocity_curve > 0:
         click.echo(f"[*] Applying logarithmic velocity curve (k={velocity_curve})...")
         notes = apply_logarithmic_velocity(notes, curvature=velocity_curve)
 
     if merge:
+        click.echo("[*] Merging consecutive same-pitch notes...")
         notes = merge_notes(notes)
-    click.echo(f"[*] Resulting {len(notes)} unique note events.")
+    click.echo(f"[*] Resulting {len(notes)} note events.")
 
     if quantize:
         click.echo(f"[*] Quantizing to {quantize} grid at {bpm} BPM (strength={quantize_strength})...")

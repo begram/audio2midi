@@ -95,6 +95,17 @@ def test_pitch_bend_flag_is_forwarded(harness, wav, out):
     assert harness.transcribe_kwargs['include_pitch_bends'] is True
 
 
+def test_pitch_bend_without_tab_warns_about_shared_channel(harness, wav, out):
+    """Without --tab every note shares one channel, so bends leak between notes."""
+    result = run([wav, out, '--bpm', '120', '--pitch-bend'])
+    assert result.exit_code == 0
+    assert "one MIDI channel" in result.output
+
+    result = run([wav, out, '--bpm', '120', '--pitch-bend', '--tab'])
+    assert result.exit_code == 0
+    assert "one MIDI channel" not in result.output
+
+
 # --- frequency bound resolution --------------------------------------------
 
 def test_no_frequency_flags_leaves_bounds_unset(harness, wav, out):

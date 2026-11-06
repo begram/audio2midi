@@ -29,7 +29,6 @@ Usage:
 """
 
 import argparse
-import hashlib
 import json
 import sys
 from pathlib import Path
@@ -42,9 +41,8 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from basic_pitch_engine import BasicPitchEngine  # noqa: E402
+from engine_cache import transcribe_cached  # noqa: E402
 from post_process import clean_notes, merge_notes  # noqa: E402
-from processor import preprocess_pipeline  # noqa: E402
 from tab_engine import TabMapper  # noqa: E402
 
 DATA_DIR = REPO_ROOT / "data" / "guitarset"
@@ -94,26 +92,6 @@ def load_reference(jams_path):
                 "string": string,
             })
     notes.sort(key=lambda n: n["start"])
-    return notes
-
-
-def transcribe_cached(wav_path, engine_params, use_cache=True):
-    """Caches raw engine output, which is the only expensive part of a run."""
-    preprocess_keys = {"noise_threshold", "use_hpss"}
-    pre = {k: v for k, v in engine_params.items() if k in preprocess_keys}
-    infer = {k: v for k, v in engine_params.items() if k not in preprocess_keys}
-
-    key = hashlib.sha1(
-        json.dumps({"wav": wav_path.name, "pre": pre, "infer": infer}, sort_keys=True).encode()
-    ).hexdigest()[:12]
-    cache_path = CACHE_DIR / f"{wav_path.stem}__{key}.json"
-    if use_cache and cache_path.exists():
-        return json.loads(cache_path.read_text())
-
-    audio, sr = preprocess_pipeline(str(wav_path), **pre)
-    notes = BasicPitchEngine().transcribe(audio, sr, **infer)
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    cache_path.write_text(json.dumps(notes))
     return notes
 
 
@@ -201,7 +179,7 @@ def naive_string_assignment(notes):
 
 def evaluate(wav_path, jams_path, engine_name, post_name, use_cache):
     ref_notes = load_reference(jams_path)
-    raw = transcribe_cached(wav_path, ENGINE_PRESETS[engine_name], use_cache=use_cache)
+    raw = transcribe_cached(wav_path, ENGINE_PRESETS[engine_name], CACHE_DIR, use_cache=use_cache)
 
     notes = clean_notes([dict(n) for n in raw])
     if POST_PRESETS[post_name]["merge"]:
