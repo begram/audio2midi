@@ -34,7 +34,7 @@ test scores makes those scores optimistic. Record each decision in the appendix.
 | Offset F1, CLI defaults | 0.540 | — |
 | `--tab` string accuracy | 0.664 (naive nearest-to-fret-5 baseline: 0.644) | — |
 | `--tab` string accuracy, single-note lines | 0.612 (naive: 0.610) | — |
-| Test suite / coverage | 153 tests (slow regressions included), 99.8% branch coverage of `src/` | ≥ 95% coverage |
+| Test suite / coverage | all passing, slow regressions included; 99.8% branch coverage of `src/` | ≥ 95% coverage |
 
 Open requirement gaps (`requirements.md` §6): the accuracy target, latency and memory
 budgets (no harness), `--tuning`, and type annotations.
@@ -47,8 +47,8 @@ other way, but they have no ground truth, so the question could not be settled.
 
 | ID | Item | Importance | Effort | Phase |
 | :--- | :--- | :--- | :--- | :--- |
-| A1 | Confirm CI is green on Linux | **Critical** | S | 0 |
-| A2 | Ground truth for your own recordings | **Critical** | M | 1 |
+| A1 | Confirm CI is green on Linux — ✅ done | **Critical** | S | 0 |
+| A2 | Ground truth for your own recordings — 🟡 tooling done, annotation pending | **Critical** | M | 1 |
 | A3 | Confidence intervals on every comparison | **High** | S | 1 |
 | D1 | Write the pitch-bend range into the file | **High** | S | 1 |
 | B1 | Measure preprocessing against ground truth | **High** | S | 1 |
@@ -86,14 +86,19 @@ other way, but they have no ground truth, so the question could not be settled.
 
 ### A — Measurement
 
-#### A1 · Confirm CI is green on Linux — **Critical** · S
-- **Why:** several pushes today ran CI for the first time with the ONNX backend and the new
-  `tests/test_tools.py`, and the result has not been checked. On Linux, `basic-pitch` also
-  pulls in `tflite-runtime`; the pinned ONNX model should make that irrelevant, unverified.
-- **What:** check https://github.com/begram/audio2midi/actions; fix any failure.
-- **Done when:** the latest `main` run is green.
+#### A1 · Confirm CI is green on Linux — **Critical** · S · ✅ Done 2026-11-07
+- **Why:** several pushes ran CI for the first time with the ONNX backend and the new
+  `tests/test_tools.py`, and the result had not been checked.
+- **Result:** every `main` run since the ONNX switch passed (`450fba6`, `be29a30`,
+  `260df2a`, `e9689ff`), checked through the GitHub API. The ONNX backend and the tool tests
+  work on Linux.
 
-#### A2 · Ground truth for your own recordings — **Critical** · M
+#### A2 · Ground truth for your own recordings — **Critical** · M · 🟡 Tooling done; annotation pending
+- **Status:** steps 3–4 are ready: `tools/evaluate_recordings.py` is built and tested, and
+  drafts for the five recordings in `tests/` are in `tests/references/*.draft.mid` as starting
+  points. **Waiting on steps 1–2**, the hand-corrected references, which only a person
+  listening can make. The step-by-step checklist is
+  [`docs/ANNOTATING.md`](../docs/ANNOTATING.md).
 - **Why:** the threshold decision split by recording type. GuitarSet (controlled recording)
   says stricter thresholds gain 4.7 points of onset F1; the recordings in `tests/` suggest
   they lose audible notes (event recall 0.692 → 0.612), but those scores are self-consistency,
@@ -101,15 +106,17 @@ other way, but they have no ground truth, so the question could not be settled.
 - **What:**
   1. Pick 5–10 short takes representative of real use: fingerpicked, strummed, picked
      lines, at least one noisy or quiet recording.
-  2. Run the CLI, correct the output by hand in a DAW (delete, add, move notes), and save
-     the corrected `.mid` beside the `.wav` as the reference.
-  3. Add `tools/evaluate_recordings.py` scoring the pipeline against those references with
-     the same `mir_eval` settings as the GuitarSet tool; reuse its `score` function.
-  4. Re-run the threshold comparison (defaults vs `tuned_clean`) on them.
+  2. Correct the tool's draft for each by ear in a DAW (delete, add, move notes) and save it
+     as `tests/references/<name>.mid`. The draft is the union of both settings being
+     compared, so it gives neither a head start.
+  3. Score the pipeline against those references with `tools/evaluate_recordings.py`, which
+     uses the same `mir_eval` settings as the GuitarSet tool.
+  4. Decide the defaults with the rule fixed in advance in `docs/ANNOTATING.md` (last section).
 - **Done when:** the default thresholds are chosen from measured accuracy on representative
   recordings, and the decision is recorded in `basic_pitch_engine.py` and the appendix.
-- **Note:** hand-correcting starts from the tool's own output, which can bias the reference
-  toward it. Correct by listening, not by looking.
+- **Note:** the drafts come from the tool itself, so a reference can still lean toward what
+  both settings found (a note both missed may stay missed). Correct by listening, not by
+  looking.
 
 #### A3 · Confidence intervals on every comparison — **High** · S
 - **Why:** several decisions turned on small differences (`max_frets` 12 vs 15: 0.002; the

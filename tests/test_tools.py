@@ -137,6 +137,90 @@ def test_splits_are_disjoint_and_cover_every_player(corpus):
     assert {eg.player_of(w) for w in test} == {"04", "05"}
 
 
+# --- your own recordings (evaluate_recordings) --------------------------------------
+
+def _write_midi(path, tracks, drum_track=None):
+    import pretty_midi
+
+    pm = pretty_midi.PrettyMIDI()
+    for notes in tracks:
+        inst = pretty_midi.Instrument(program=24)
+        inst.notes = [pretty_midi.Note(velocity=90, pitch=p, start=s, end=e) for p, s, e in notes]
+        pm.instruments.append(inst)
+    if drum_track:
+        drums = pretty_midi.Instrument(program=0, is_drum=True)
+        drums.notes = [pretty_midi.Note(velocity=90, pitch=p, start=s, end=e) for p, s, e in drum_track]
+        pm.instruments.append(drums)
+    pm.write(str(path))
+
+
+def test_reference_midi_merges_tracks_and_skips_drums(tmp_path):
+    """A reference may come back from a DAW split over tracks; percussion is not pitch."""
+    import evaluate_recordings as er
+
+    path = tmp_path / "take.mid"
+    _write_midi(path, [[(64, 1.0, 1.5)], [(40, 0.5, 2.0)]], drum_track=[(36, 0.0, 0.1)])
+
+    ref = er.load_reference_midi(path)
+
+    assert [(n["pitch"], n["start"]) for n in ref] == [(40.0, 0.5), (64.0, 1.0)]
+
+
+def test_only_annotated_recordings_are_scored(tmp_path):
+    import evaluate_recordings as er
+
+    refs = tmp_path / "references"
+    refs.mkdir()
+    done, todo = tmp_path / "done.wav", tmp_path / "todo.wav"
+    done.touch()
+    todo.touch()
+    (refs / "done.mid").touch()
+    (refs / "todo.draft.mid").touch()  # a draft is not a reference
+
+    pairs = er.paired_recordings([done, todo], refs)
+
+    assert pairs == [(done, refs / "done.mid")]
+
+
+def test_draft_is_the_union_of_both_settings(monkeypatch):
+    """A draft from one setting would favour it in the very comparison it exists to settle."""
+    import evaluate_recordings as er
+
+    found = {
+        "baseline": [{"pitch": 60, "start": 0.00, "end": 0.5, "velocity": 90},
+                     {"pitch": 64, "start": 1.00, "end": 1.5, "velocity": 90}],
+        "tuned_clean": [{"pitch": 60, "start": 0.02, "end": 0.4, "velocity": 90},  # same note
+                        {"pitch": 67, "start": 2.00, "end": 2.2, "velocity": 90}],  # only here
+    }
+    by_params = {id(eg.ENGINE_PRESETS[name]): notes for name, notes in found.items()}
+    monkeypatch.setattr(er, "pipeline_notes", lambda wav, params: by_params[id(params)])
+
+    draft = er.draft_notes(Path("take.wav"))
+
+    assert [(n["pitch"], n["start"]) for n in draft] == [(60, 0.0), (64, 1.0), (67, 2.0)]
+
+
+def test_drafts_never_replace_a_reference_or_an_existing_draft(tmp_path, monkeypatch):
+    """Overwriting hand-corrected work would destroy the ground truth."""
+    import evaluate_recordings as er
+
+    monkeypatch.setattr(er, "pipeline_notes", lambda wav, params: [
+        {"pitch": 60, "start": 0.0, "end": 0.5, "velocity": 90}
+    ])
+    refs = tmp_path / "references"
+    refs.mkdir()
+    annotated, drafted, fresh = (tmp_path / f"{n}.wav" for n in ("annotated", "drafted", "fresh"))
+    (refs / "annotated.mid").write_text("hand-corrected")
+    (refs / "drafted.draft.mid").write_text("draft being corrected")
+
+    written = er.write_drafts([annotated, drafted, fresh], refs)
+
+    assert written == [refs / "fresh.draft.mid"]
+    assert (refs / "annotated.mid").read_text() == "hand-corrected"
+    assert (refs / "drafted.draft.mid").read_text() == "draft being corrected"
+    assert er.load_reference_midi(refs / "fresh.draft.mid")[0]["pitch"] == 60.0
+
+
 # --- engine output cache -----------------------------------------------------------
 
 @pytest.fixture

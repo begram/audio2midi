@@ -52,6 +52,19 @@ Dev toolchain: `.\venv\Scripts\pip install -r requirements-dev.txt`.
 .\venv\Scripts\python.exe tools\evaluate_guitarset.py --split test --limit 0   # held-out confirmation
 ```
 
+```powershell
+# Ground-truth accuracy against hand-corrected references of the user's own recordings
+.\venv\Scripts\python.exe tools\evaluate_recordings.py --write-drafts   # drafts to correct by ear
+.\venv\Scripts\python.exe tools\evaluate_recordings.py                  # score once references exist
+```
+
+`tests/references/<name>.mid` are hand-corrected ground truth for `tests/<name>.wav`, tracked in git
+(`.gitignore` re-includes them; `*.draft.mid` stays ignored). Never overwrite or regenerate them:
+`write_drafts` skips any recording that has a reference, and the tests pin that. They are the only
+ground truth for recordings like the ones users make, and they are what should decide the detection
+defaults (roadmap A2). The user-facing checklist for making them is `docs/ANNOTATING.md`; its last
+section defines how the decision is made, so follow it when asked to "decide the detection defaults".
+
 GuitarSet is **split by player**: `dev` is players 00–03, `test` is players 04–05 (120 tracks). The
 default is `dev`. Tune and compare settings on `dev` only, and run `test` to confirm a decision,
 never to make one: a setting chosen by looking at test scores makes those scores optimistic.

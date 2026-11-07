@@ -37,9 +37,11 @@ audio2midi/
 │   ├── tasks.md              # Original phased implementation plan (historical)
 │   └── roadmap.md            # Forward plan, importance-tagged, with the decision record
 ├── docs/
-│   └── PROJECT_OVERVIEW.md   # This file: architecture & component guide
+│   ├── PROJECT_OVERVIEW.md   # This file: architecture & component guide
+│   └── ANNOTATING.md         # Checklist for hand-correcting reference transcriptions
 ├── tools/
 │   ├── evaluate_guitarset.py     # Ground-truth accuracy against GuitarSet (manual)
+│   ├── evaluate_recordings.py    # Ground-truth accuracy against hand-corrected own recordings
 │   ├── analyze_transcription.py  # Plausibility sweep over presets on tests/ fixtures
 │   └── engine_cache.py           # Shared, code-aware cache of raw engine output
 ├── data/guitarset/           # GuitarSet corpus, downloaded separately (gitignored)
@@ -54,7 +56,8 @@ audio2midi/
 │   ├── test_audio2midi.py    # Integration tests for core pipeline & noise gate behaviour
 │   ├── test_cli.py           # CLI subprocess invocation & argument validation
 │   ├── test_cli_wiring.py    # In-process CLI orchestration, option wiring & full-pipeline invariants
-│   ├── test_tools.py         # GuitarSet bookkeeping, track selection & engine-cache invalidation
+│   ├── test_tools.py         # Evaluation bookkeeping, track selection & engine-cache invalidation
+│   ├── references/           # Hand-corrected reference MIDI for the .wav fixtures (tracked)
 │   └── test_regression.py    # End-to-end transcription regressions (marked `slow`)
 ├── .github/workflows/ci.yml  # Lint + fast test suite with coverage gate on push / PR
 ├── pytest.ini                # Pytest configuration & marker registration

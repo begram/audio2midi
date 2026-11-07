@@ -127,6 +127,26 @@ have no annotations, so its scores rank configurations rather than measure accur
 .\venv\Scripts\python.exe tools\evaluate_guitarset.py --engine-presets baseline tuned_clean   # defaults vs clean-recording thresholds
 ```
 
+### Measuring on your own recordings
+
+GuitarSet is a controlled recording, so its scores may not carry over to yours.
+`tools/evaluate_recordings.py` scores the pipeline against hand-corrected references of your
+own takes:
+
+```powershell
+.\venv\Scripts\python.exe tools\evaluate_recordings.py --write-drafts   # 1. drafts to correct
+# 2. In a DAW, correct tests\references\<name>.draft.mid BY EAR; save as tests\references\<name>.mid
+.\venv\Scripts\python.exe tools\evaluate_recordings.py                  # 3. score defaults vs clean
+```
+
+Correct the drafts by listening, not by looking at them: a draft comes from the pipeline
+itself, so a reference corrected by eye leans toward the pipeline's own mistakes. References
+(`tests/references/*.mid`) are tracked in git; drafts are not. Five to ten takes covering
+fingerpicked, strummed and picked playing, including a noisy one, are enough to decide which
+detection thresholds suit your recordings. **The full step-by-step checklist, including how to
+keep the draft aligned with the audio in a DAW, is in
+[`docs/ANNOTATING.md`](docs/ANNOTATING.md).**
+
 ### Clean recordings
 
 The detection defaults (`--onset-threshold 0.5 --frame-threshold 0.3 --min-note-length 127.7`)
