@@ -36,8 +36,8 @@ DEFAULT_FRAME_THRESHOLD = 0.3
 DEFAULT_MIN_NOTE_LENGTH_MS = 127.7
 
 # Opt-in values for clean, GuitarSet-like recordings (good mic, quiet room). Costs on the
-# held-out players, both small: offset F1 0.540 -> 0.532, --tab string accuracy 0.664 ->
-# 0.657. 58 ms is 5 model frames at Basic Pitch's 86.13 frames per second.
+# held-out players, both small: offset F1 0.552 -> 0.525, --tab string accuracy 0.661 ->
+# 0.658. 58 ms is 5 model frames at Basic Pitch's 86.13 frames per second.
 CLEAN_RECORDING_ONSET_THRESHOLD = 0.6
 CLEAN_RECORDING_FRAME_THRESHOLD = 0.5
 CLEAN_RECORDING_MIN_NOTE_LENGTH_MS = 58.0

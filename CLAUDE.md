@@ -62,7 +62,9 @@ Dev toolchain: `.\venv\Scripts\pip install -r requirements-dev.txt`.
 (`.gitignore` re-includes them; `*.draft.mid` stays ignored). Never overwrite or regenerate them:
 `write_drafts` skips any recording that has a reference, and the tests pin that. They are the only
 ground truth for recordings like the ones users make, and they are what should decide the detection
-defaults (roadmap A2). The user-facing checklist for making them is `docs/ANNOTATING.md`; its last
+defaults (roadmap A2). Byte-identical references (the same take copied in two audio formats, like
+the two `Fingerpick_*` files) are one take: `evaluate_recordings` averages them first and counts
+distinct takes toward the decision rule. The user-facing checklist for making them is `docs/ANNOTATING.md`; its last
 section defines how the decision is made, so follow it when asked to "decide the detection defaults".
 
 GuitarSet is **split by player**: `dev` is players 00–03, `test` is players 04–05 (120 tracks). The
@@ -157,7 +159,7 @@ These are load-bearing; reordering silently corrupts output:
   any hand; measured on GuitarSet it was the main reason chord string accuracy was ~0.52.
 - **Detection thresholds stay at Basic Pitch's defaults (0.5 / 0.3 / 127.7 ms) on purpose.** They
   are defined once in `basic_pitch_engine.DEFAULT_*` and imported by the CLI. Stricter values
-  (`CLEAN_RECORDING_*`: 0.6 / 0.5 / 58 ms) win on GuitarSet (held-out onset F1 0.775 → 0.822) but
+  (`CLEAN_RECORDING_*`: 0.6 / 0.5 / 58 ms) win on GuitarSet (held-out onset F1 0.784 → 0.822) but
   lost audible note events on the project's own, less controlled recordings (event recall 0.69 →
   0.61, no ground truth there). Real recordings are imperfect and a missed note costs a user more
   than a spurious one, so the defaults favour recall and the stricter values are a documented
@@ -190,17 +192,21 @@ These are load-bearing; reordering silently corrupts output:
 
 - **Phantom re-onsets are absorbed by checking the audio, not the note list**
   (`retrigger.py`, on by default, `--keep-retriggers` to disable). When another string is plucked,
-  Basic Pitch often restarts notes that are still ringing; on the hand-corrected references that
+  Basic Pitch often restarts notes that are still ringing; in the hand-corrected references that
   was ~60% of all false notes. Real and phantom re-onsets look identical as notes (no gap,
-  overlapping velocities; a velocity-ratio rule gained ≤ 0.003 F1). The fundamental's level
-  separates them: median +5.4 dB across a real re-pluck, −0.2 dB across a phantom. Threshold 0 dB:
-  references onset F1 0.687 → 0.745, offset F1 0.481 → 0.605; GuitarSet neutral (held-out
-  0.775 → 0.784) but recall drops ~3 points there and on strummed material, where a re-strum of
-  the same chord can read as a phantom. That trade is accepted because the user reported phantom
-  re-onsets as the most common error in their own recordings.
-- **Velocities are scaled by 0.8 by default** (`post_process.DEFAULT_VELOCITY_SCALE`). The
-  hand-corrected references track engine velocity closely (r = 0.86) at 0.81× its level; a plain
-  scale halves the mean error (14.6 → 6.9) and an offset term adds nothing.
+  overlapping velocities; a velocity-ratio rule gained ≤ 0.003 onset F1). The fundamental's level
+  separates them: median +5.4 dB across a real re-pluck, −0.2 dB across a phantom. With the 0 dB
+  threshold, on the three distinct annotated takes: onset F1 0.707 → 0.754 (precision
+  0.594 → 0.682, recall 0.928 → 0.867), offset F1 0.523 → 0.617. GuitarSet onset F1 is neutral
+  (dev 0.772 → 0.769, held-out 0.775 → 0.784), with recall down 2.6–4 points. The cost is
+  concentrated on strumming, where a re-strum of the same chord can read as a phantom: the strum
+  take's recall fell 0.954 → 0.856 (onset F1 0.916 → 0.874). Accepted, against the recall-first
+  rule above, because the project owner reported phantom re-onsets as the most common error when
+  correcting the references; `--keep-retriggers` restores the old behaviour.
+- **Velocities are scaled by 0.8 by default** (`post_process.DEFAULT_VELOCITY_SCALE`). In the
+  hand-corrected references (318 matched notes, three takes) velocity tracks the engine's closely
+  (r = 0.86) at 0.81× its level; a plain scale halves the mean error (14.6 → 6.9) and an offset
+  term adds nothing.
 
 ### Two independent duration gates
 

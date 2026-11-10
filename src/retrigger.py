@@ -3,15 +3,20 @@
 When a new string is plucked, the broadband attack often makes Basic Pitch cut every
 note that is still sounding and restart it at the same pitch. In the MIDI file that is
 a re-pluck that never happened. On the hand-corrected references of the project's own
-recordings, these phantom re-onsets were about 60% of all spurious notes.
+recordings (`tests/references/`), these phantom re-onsets were about 60% of all spurious
+notes under the default thresholds.
 
 Nothing in the note list tells a phantom from a genuine re-pluck: both follow their
 predecessor with no gap, and their velocities overlap almost completely (a rule on the
 velocity ratio gained at most 0.003 onset F1). The audio does tell them apart: a real
 pluck adds energy at the note's own fundamental, while a phantom sits on a fundamental
 that keeps decaying while a *different* string supplies the attack. Measured over the
-re-onsets in those references, the fundamental's level rose by a median 5.4 dB for real
-re-plucks and -0.2 dB for phantoms.
+candidate re-onsets in those recordings, the fundamental's level rose by a median 5.4 dB
+across real re-plucks and -0.2 dB across phantoms.
+
+The cost is recall: a genuine re-pluck that lands no louder than the still-ringing note
+(typically a re-strum of the same chord) is absorbed too. Measurements and the decision
+are in `specs/roadmap.md`, appendix.
 """
 
 import librosa
@@ -22,18 +27,19 @@ import numpy as np
 # apart; 15 ms covers both without reaching notes that genuinely stopped.
 MAX_GAP_SECONDS = 0.015
 
-# Absorb a candidate whose fundamental rises by less than this. Picked on the recordings'
-# references, where 0 dB was the best value (onset F1 0.707 -> 0.754); GuitarSet dev was
-# flat across it (0.755 -> 0.757). Higher values cost more real re-plucks than they save.
+# Absorb a candidate whose fundamental rises by less than this. Swept from -2 to +3 dB on
+# the three distinct annotated takes and 20 GuitarSet dev tracks: 0 dB scored best on the
+# takes (mean onset F1 0.707 -> 0.754) and was neutral on GuitarSet. Higher values absorb
+# more real re-plucks than phantoms.
 MIN_RISE_DB = 0.0
 
-# Level windows around the onset, in analysis frames (256 samples, ~11.6 ms at 22.05 kHz):
-# the mean over the ~60 ms before the onset against the peak over the ~60 ms after it.
-# The frame at the onset itself is skipped on both sides, since the attack transient of
-# the other string smears into every bin there.
+# Level windows around the onset frame f, in analysis frames (256 samples, ~11.6 ms at
+# 22.05 kHz): the mean over frames f-6..f-2 (before) against the peak over f+1..f+5
+# (after), about 58 ms each. Frames f-1 and f are skipped: the other string's attack
+# transient smears into every bin there.
 _HOP = 256
-_PRE_FRAMES = (6, 1)
-_POST_FRAMES = (1, 6)
+_PRE_FRAMES = (6, 1)   # slice [f-6, f-1)
+_POST_FRAMES = (1, 6)  # slice [f+1, f+6)
 # Three bins per semitone, with the peak taken over the nearest bin and its neighbours,
 # so a slightly sharp or flat string still reads at its own pitch.
 _BINS_PER_SEMITONE = 3
@@ -58,10 +64,11 @@ def fundamental_rise_db(spec, sr, pitch, time):
         return np.inf
     band = spec[centre - 1:centre + 2].max(axis=0)
     frame = int(librosa.time_to_frames(time, sr=sr, hop_length=_HOP))
-    pre = band[max(0, frame - _PRE_FRAMES[0]):max(1, frame - _PRE_FRAMES[1])]
+    pre = band[max(0, frame - _PRE_FRAMES[0]):max(0, frame - _PRE_FRAMES[1])]
     post = band[frame + _POST_FRAMES[0]:frame + _POST_FRAMES[1]]
     if pre.size == 0 or post.size == 0 or pre.mean() < _SILENT:
-        # Nothing was ringing at this pitch, so this cannot be a phantom of a ringing note.
+        # No level to compare against (too close to either end of the audio), or nothing
+        # was ringing at this pitch: no evidence of a phantom, so the note is kept.
         return np.inf
     return float(20.0 * np.log10((post.max() + 1e-9) / pre.mean()))
 

@@ -11,7 +11,7 @@
 - **Language & Runtime:** Python 3.10.x
 - **Audio Processing:** `librosa` (HPSS, spectral loading, RMS envelope), `scipy.signal` (vectorized one-pole 80 Hz high-pass IIR via `lfilter`), `numpy` (<2.0.0)
 - **Deep Learning Transcription Engine:** Spotify `basic-pitch` (ONNX model on `onnxruntime`; no TensorFlow)
-- **Post-Processing:** NumPy vectorized quantization, opt-in windowed note merging, logarithmic velocity transformation
+- **Post-Processing:** NumPy vectorized quantization, audio-checked absorption of false re-onsets (`src/retrigger.py`), opt-in windowed note merging, velocity scaling and optional logarithmic velocity curve
 - **Tablature Solver:** Viterbi dynamic programming solver (`TabMapper`) with per-frame position emission cost and polyphonic string collision guard
 - **MIDI Output Engine:** `pretty_midi`, one track per assigned string, with per-note pitch bend contours
 - **Lint, Coverage & CI:** `ruff` (`ruff.toml`), `pytest-cov` (`.coveragerc`, branch mode, `fail_under = 95`), GitHub Actions (`.github/workflows/ci.yml`)
@@ -80,7 +80,7 @@ audio2midi/
 2. **Inference ([`src/basic_pitch_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/basic_pitch_engine.py)):**
    Basic Pitch DNN model detects pitch onsets, offsets, amplitudes, and a per-note bend contour, optionally filtered by frequency bounds (`--freq-bounds`: 80–1400 Hz, which keeps MIDI 39–88). Velocity is floored at 1 so a near-silent onset never becomes a note-off.
 3. **Post-Processing ([`src/post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py)):**
-   Notes filtered by duration & velocity $\rightarrow$ Optional logarithmic velocity curve $\rightarrow$ Optional same-pitch merging (`--merge`) $\rightarrow$ Optional grid quantization (with bend re-timing).
+   Notes filtered by duration & velocity $\rightarrow$ Optional logarithmic velocity curve $\rightarrow$ Velocity scale (`--velocity-scale`, default 0.8) $\rightarrow$ False re-onsets of ringing notes absorbed, checked against the audio ([`src/retrigger.py`](file:///E:/sw_ws/repo1/audio2midi/src/retrigger.py), `--keep-retriggers` disables) $\rightarrow$ Optional same-pitch merging (`--merge`) $\rightarrow$ Optional grid quantization (with bend re-timing).
 4. **Tablature Solver ([`src/tab_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/tab_engine.py)):**
    Viterbi solver calculates global minimum energy neck path (Strings 1–6) while enforcing strict non-collision rules for chord notes.
 5. **MIDI Generation ([`src/midi_gen.py`](file:///E:/sw_ws/repo1/audio2midi/src/midi_gen.py)):**
@@ -127,8 +127,8 @@ scanning every note, so cost is bounded by window density rather than total note
 (20 000 notes in ~0.37 s). Earlier revisions described this as a sweep-line; it is not
 one, and the unused event list that hinted at that design has been removed.
 
-Merging is opt-in (`--merge`). Against GuitarSet it lowered onset F1 from 0.742 to 0.646
-on the tuning tracks and from 0.775 to 0.693 on held-out players:
+Merging is opt-in (`--merge`). Against GuitarSet (measured before re-onset absorption was added) it lowered onset F1 from
+0.742 to 0.646 on the tuning tracks and from 0.775 to 0.693 on held-out players:
 the end-to-start gap test also absorbs notes that simply sustained until the same pitch was
 played again, so it removes genuine repeats. See the README for the full measurement.
 

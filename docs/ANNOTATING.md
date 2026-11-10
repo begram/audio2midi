@@ -121,7 +121,8 @@ Check with `git status` that no `.draft.mid` file is listed.
 
 ## When you are done
 
-Once there are at least 5 references, ask Claude to "score the recordings and decide the
+Once there are at least 5 distinct takes (two audio-format copies of one performance, whose
+references are identical, count once), ask Claude to "score the recordings and decide the
 detection defaults" (roadmap A2). It will run:
 
 ```powershell
@@ -138,7 +139,7 @@ The rule, fixed in advance so the result cannot be argued into a preferred answe
 1. If one setting's mean `onset_f` is higher by **more than 0.02**, it wins.
 2. Otherwise they count as tied, and the one with the higher mean `onset_recall` wins, since
    a missed note is more work to fix than an extra one.
-3. If there are fewer than 5 references, no decision is made yet.
+3. If there are fewer than 5 distinct takes, no decision is made yet.
 
 The result and the decision go into the code (`basic_pitch_engine.py`) and the roadmap's
 decision record.

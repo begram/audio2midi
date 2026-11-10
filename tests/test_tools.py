@@ -275,3 +275,41 @@ def test_engine_cache_separates_presets(cache_env):
     transcribe({"use_hpss": True})
 
     assert engine.return_value.transcribe.call_count == 2
+
+
+def test_identical_references_are_one_take(tmp_path):
+    """Two format copies of one performance must not count twice toward the decision rule."""
+    import pandas as pd
+
+    import evaluate_recordings as er
+
+    a, b, c = tmp_path / "a.mid", tmp_path / "b.mid", tmp_path / "c.mid"
+    _write_midi(a, [[(60, 0.0, 0.5)]])
+    b.write_bytes(a.read_bytes())
+    _write_midi(c, [[(64, 0.0, 0.5)]])
+    assert er.take_id(a) == er.take_id(b) != er.take_id(c)
+
+    frame = pd.DataFrame([
+        {"engine_preset": "p", "take": er.take_id(a), "onset_f": 0.2},
+        {"engine_preset": "p", "take": er.take_id(b), "onset_f": 0.4},
+        {"engine_preset": "p", "take": er.take_id(c), "onset_f": 0.9},
+    ])
+    # Copies average to 0.3 first; the mean is over two takes, not three rows.
+    assert er.summarize(frame, ["onset_f"]).loc["p", "onset_f"] == pytest.approx(0.6)
+
+
+def test_recording_pipeline_absorbs_retriggers_like_the_cli(monkeypatch):
+    import evaluate_recordings as er
+
+    raw = [{"pitch": 60, "start": 0.0, "end": 0.5, "velocity": 90}]
+    seen = {}
+    monkeypatch.setattr(er, "transcribe_cached", lambda *a, **k: raw)
+    monkeypatch.setattr(er, "preprocessed_audio", lambda wav, params: ("audio", 22050))
+
+    def absorb(notes, audio, sr):
+        seen["args"] = (audio, sr)
+        return notes
+
+    monkeypatch.setattr(er, "absorb_ringing_retriggers", absorb)
+    assert er.pipeline_notes(Path("take.wav"), {}) == raw
+    assert seen["args"] == ("audio", 22050)

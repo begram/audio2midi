@@ -40,13 +40,14 @@ GUITAR_MAX_FREQ = 1400.0
               help='Basic Pitch minimum note length in milliseconds (engine-level). For clean '
                    'recordings try 58.')
 @click.option('--velocity-threshold', type=click.IntRange(0, 127), default=10,
-              help='Drop notes below this raw velocity, judged before --velocity-curve.')
+              help='Drop notes below this raw velocity, judged before --velocity-curve '
+                   'and --velocity-scale.')
 @click.option('--velocity-curve', type=click.FloatRange(min=0.0), default=0.0,
               help='Logarithmic velocity curve factor k (e.g. 5.0); 0.0 disables.')
 @click.option('--velocity-scale', type=click.FloatRange(0.0, 2.0, min_open=True),
               default=DEFAULT_VELOCITY_SCALE,
-              help='Multiply output velocities by this, after --velocity-curve. The default '
-                   'matches hand-corrected recordings; 1.0 keeps the engine level.')
+              help='Multiply velocities by this, after --velocity-curve. The default was '
+                   'measured on hand-corrected recordings; 1.0 keeps the engine level.')
 @click.option('--noise-threshold', type=click.FloatRange(0.0, 1.0), default=0.005,
               help='RMS threshold for the noise gate; 0.0 disables.')
 @click.option('--hpss', is_flag=True,

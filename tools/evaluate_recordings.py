@@ -34,6 +34,7 @@ the references.
 """
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
@@ -134,16 +135,33 @@ def paired_recordings(wavs, references_dir=REFERENCES_DIR):
             if reference_path(w, references_dir).exists()]
 
 
+def take_id(ref_path):
+    """Identifies the performance a reference transcribes, by its content.
+
+    The same take can be in `tests/` more than once (e.g. one mono 44.1 kHz and one stereo
+    48 kHz copy); its references are then byte-identical. Such copies test format handling
+    but are one performance, so they count once toward the decision rule and the mean.
+    """
+    return hashlib.sha1(Path(ref_path).read_bytes()).hexdigest()[:12]
+
+
+def summarize(frame, cols):
+    """Per-preset means over distinct takes: copies of one take are averaged first."""
+    per_take = frame.groupby(["engine_preset", "take"])[cols].mean()
+    return per_take.groupby("engine_preset").mean()
+
+
 def evaluate(pairs, presets, use_cache=True):
     rows = []
     for wav, ref_path in pairs:
         ref = load_reference_midi(ref_path)
+        take = take_id(ref_path)
         for name in presets:
             est = pipeline_notes(wav, eg.ENGINE_PRESETS[name], use_cache=use_cache)
             on_p, on_r, on_f = eg.score(ref, est, offset_ratio=None)
             _, _, off_f = eg.score(ref, est, offset_ratio=eg.OFFSET_RATIO)
             rows.append({
-                "recording": wav.stem, "engine_preset": name,
+                "recording": wav.stem, "take": take, "engine_preset": name,
                 "ref_notes": len(ref), "est_notes": len(est),
                 "onset_precision": on_p, "onset_recall": on_r, "onset_f": on_f,
                 "offset_f": off_f,
@@ -193,12 +211,16 @@ def main():
 
     pd.set_option("display.width", 200)
     cols = ["ref_notes", "est_notes", "onset_precision", "onset_recall", "onset_f", "offset_f"]
-    print(f"\n[+] {len(pairs)} annotated recording(s) -> {out_path}\n")
+    takes = frame["take"].nunique()
+    print(f"\n[+] {len(pairs)} annotated recording(s), {takes} distinct take(s) -> {out_path}\n")
     print(frame.pivot_table(index="recording", columns="engine_preset", values="onset_f").round(3))
-    print("\nMean by preset:")
-    print(frame.groupby("engine_preset")[cols].mean().round(3))
-    if len(pairs) < 5:
-        print(f"\n[!] only {len(pairs)} recording(s): too few to decide defaults on. Aim for 5-10, "
+    if takes < len(pairs):
+        print("\n[*] Recordings with identical references are copies of one take; each take "
+              "counts once below.")
+    print("\nMean by preset, over distinct takes:")
+    print(summarize(frame, cols).round(3))
+    if takes < 5:
+        print(f"\n[!] only {takes} distinct take(s): too few to decide defaults on. Aim for 5-10, "
               "covering fingerpicked, strummed and picked playing, including a noisy take.")
 
 

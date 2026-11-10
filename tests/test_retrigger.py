@@ -116,3 +116,11 @@ def test_no_candidates_skips_the_analysis():
 def test_out_of_range_pitch_is_kept(ringing_then_other_string):
     notes = [_note(127, 0.0, 1.0), _note(127, 1.0, 2.0)]
     assert len(absorb_ringing_retriggers(notes, ringing_then_other_string, SR)) == 2
+
+
+def test_onset_too_close_to_the_start_has_no_before_window():
+    # At 10 ms there is no frame before the skipped ones to compare against: keep the note.
+    audio = _string(A3, 0.0, 1.0)
+    spec = np.abs(librosa.cqt(audio, sr=SR, hop_length=256, fmin=librosa.midi_to_hz(24),
+                              n_bins=288, bins_per_octave=36))
+    assert fundamental_rise_db(spec, SR, A3, 0.01) == np.inf

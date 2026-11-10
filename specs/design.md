@@ -21,7 +21,9 @@ graph TD
     subgraph Post Processing & Expression
         D --> D1[Duration & Velocity Filter]
         D1 --> D2[Log Velocity Curve, optional --velocity-curve]
-        D2 --> D3[Same-pitch Merging, optional --merge]
+        D2 --> D2a[Velocity Scale, --velocity-scale, default 0.8]
+        D2a --> D2b[Absorb false re-onsets, retrigger.py, reads audio; --keep-retriggers disables]
+        D2b --> D3[Same-pitch Merging, optional --merge]
         D3 --> D4[Quantize & retime bends, optional --quantize]
     end
     D4 --> E[Tab Mapper tab_engine.py, optional --tab]
@@ -53,7 +55,7 @@ graph TD
 - Bends are **not** matched to notes by time window: a bend is owned by exactly one note by construction, so a single string's bend is never copied onto simultaneously sounding notes.
 - Velocity is clamped to $[1, 127]$; a velocity of 0 is a note-off in most DAWs.
 - Pinned to the ONNX model (`MODEL_PATH`); left to its default, `basic-pitch` picks whichever runtime is importable.
-- Detection defaults are defined once (`DEFAULT_ONSET_THRESHOLD` 0.5, `DEFAULT_FRAME_THRESHOLD` 0.3, `DEFAULT_MIN_NOTE_LENGTH_MS` 127.7) and imported by the CLI. They are Basic Pitch's own values, kept because they hold recall on imperfect recordings. `CLEAN_RECORDING_*` (0.6 / 0.5 / 58 ms) are the opt-in values for clean recordings: they reach onset F1 0.822 vs 0.775 on held-out GuitarSet players, but lose audible note events on the less controlled fixtures.
+- Detection defaults are defined once (`DEFAULT_ONSET_THRESHOLD` 0.5, `DEFAULT_FRAME_THRESHOLD` 0.3, `DEFAULT_MIN_NOTE_LENGTH_MS` 127.7) and imported by the CLI. They are Basic Pitch's own values, kept because they hold recall on imperfect recordings. `CLEAN_RECORDING_*` (0.6 / 0.5 / 58 ms) are the opt-in values for clean recordings: they reach onset F1 0.822 vs 0.784 on held-out GuitarSet players, but lose audible note events on the less controlled fixtures.
 - Pitches are filtered exactly as Basic Pitch bins them, `round(min)` to `round(max)` exclusive, so 80–1400 Hz keeps MIDI 39–88 (D#2–E6).
 
 ### 2.3 Post-Processor ([`src/post_process.py`](file:///E:/sw_ws/repo1/audio2midi/src/post_process.py))
@@ -62,10 +64,12 @@ graph TD
 - **`quantize_notes(notes, bpm, grid_resolution, strength=1.0)`**: Applies partial quantization strength interpolation, writing `start_ticks`/`end_ticks` at 480 ticks per quarter:
   $$t_{\text{final}} = t_{\text{original}} + \text{strength} \times (t_{\text{quantized}} - t_{\text{original}})$$
 - **`ticks_to_seconds(notes, bpm)`**: Applies those tick values back to `start`/`end`, and maps each note's bend times onto the new span. Without this, bends keep their pre-quantization absolute times and fall outside the note that owns them.
-- **`merge_notes(notes)`**: Groups by pitch and merges consecutive same-pitch notes that overlap (or fall within 50 ms) **while another pitch is sounding through them** — the marker distinguishing engine chatter from a genuine re-pluck. The concurrency test binary-searches the start-sorted list over a bounded time window, so cost scales with window density rather than $N$. Earlier revisions described this as a sweep-line; it is not, and the vestigial unused event list has been removed. Merges carry the absorbed note's bend contour. **Opt-in (`--merge`), off by default:** on 20 GuitarSet tracks it cost 17 points of onset recall for 3 of precision (onset F1 0.742 → 0.646), confirmed on the held-out test players (0.775 → 0.693; chords 0.711 → 0.554), because the end-to-start gap test also absorbs notes that merely sustained until the same pitch was played again.
+- **`merge_notes(notes)`**: Groups by pitch and merges consecutive same-pitch notes that overlap (or fall within 50 ms) **while another pitch is sounding through them** — the marker distinguishing engine chatter from a genuine re-pluck. The concurrency test binary-searches the start-sorted list over a bounded time window, so cost scales with window density rather than $N$. Earlier revisions described this as a sweep-line; it is not, and the vestigial unused event list has been removed. Merges carry the absorbed note's bend contour. **Opt-in (`--merge`), off by default** (measured before re-onset absorption was added)**:** on 20 GuitarSet tracks it cost 17 points of onset recall for 3 of precision (onset F1 0.742 → 0.646), confirmed on the held-out test players (0.775 → 0.693; chords 0.711 → 0.554), because the end-to-start gap test also absorbs notes that merely sustained until the same pitch was played again.
+
+- **`scale_velocity(notes, factor=0.8)`**: multiplies every velocity, rounded and clipped to $[1, 127]$. Runs after `apply_logarithmic_velocity`, so it sets the final level.
 
 ### 2.3a Re-onset Absorber ([`src/retrigger.py`](file:///E:/sw_ws/repo1/audio2midi/src/retrigger.py))
-- **`absorb_ringing_retriggers(notes, audio, sr, min_rise_db=0.0, max_gap=0.015)`**: a same-pitch note starting within 15 ms of its predecessor's end is a candidate; it is folded into the predecessor (later end, bends concatenated, onset and velocity kept) unless the CQT level at its fundamental (3 bins/semitone, ±1 bin) rises by at least `min_rise_db` between the ~60 ms before and after the onset. The CQT is computed only when a candidate exists. Runs after `clean_notes`, before `merge_notes`.
+- **`absorb_ringing_retriggers(notes, audio, sr, min_rise_db=0.0, max_gap=0.015)`**: a same-pitch note starting within 15 ms of its predecessor's end is a candidate. It is folded into the predecessor (later end, bends concatenated, the predecessor's onset and velocity kept) unless the CQT level at its fundamental (3 bins/semitone, peak over ±1 bin) rises by at least `min_rise_db`: peak over frames f+1..f+5 against mean over f−6..f−2, with f the onset frame (256-sample hop, ~58 ms each side). A candidate with no measurable level before it (silent, or too near the start) is kept. The CQT is computed only when a candidate exists. Runs after `clean_notes` and the velocity stages, before `merge_notes`; `audio` is the preprocessed signal the engine heard.
 
 ### 2.4 Tablature Engine ([`src/tab_engine.py`](file:///E:/sw_ws/repo1/audio2midi/src/tab_engine.py))
 - **`TabMapper`** (named `ViterbiTabSolver` in earlier revisions of this document):

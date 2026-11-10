@@ -41,10 +41,12 @@ def apply_logarithmic_velocity(notes, curvature=5.0):
 
     return notes
 
-# Basic Pitch's velocities come out about a fifth louder than they were played. On the
-# hand-corrected references of the project's own recordings, the corrected velocities
-# track the engine's closely (correlation 0.86) at 0.81x its level; scaling by that cuts
-# the mean velocity error from 14.6 to 6.9. A linear fit with an offset does no better.
+# Basic Pitch's velocities are about a fifth higher than the hand-corrected references
+# of the project's own recordings (`tests/references/`, 318 matched notes over three
+# takes). The corrected velocities track the engine's closely (correlation 0.86) at 0.81x
+# its level, so a plain scale fits: 0.8 cuts the mean velocity error from 14.6 to 6.9,
+# and a linear fit with an offset does no better. Applied after `apply_logarithmic_velocity`,
+# so it sets the final level.
 DEFAULT_VELOCITY_SCALE = 0.8
 
 

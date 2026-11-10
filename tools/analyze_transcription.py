@@ -110,14 +110,14 @@ POST_PRESETS = {
 # pipeline
 # --------------------------------------------------------------------------------------
 
-def post_process(notes, bpm, audio=None, merge=False, quantize=None, absorb=True):
+def post_process(notes, bpm, audio, merge=False, quantize=None, absorb=True):
     """Mirrors the CLI's post-processing order, which is load-bearing.
 
-    `audio` is the (samples, sr) pair the engine heard; re-onset absorption needs it.
+    `audio` is the (samples, sr) pair the engine heard, which re-onset absorption reads.
     """
     notes = [dict(n) for n in notes]
     notes = clean_notes(notes)
-    if absorb and audio is not None:
+    if absorb:
         notes = absorb_ringing_retriggers(notes, *audio)
     if merge:
         notes = merge_notes(notes)
@@ -350,7 +350,7 @@ def analyze(wav_path, engine_name, post_name, bpm, reference, use_cache):
     post_params = POST_PRESETS[post_name]
 
     raw_notes = transcribe_cached(wav_path, engine_params, CACHE_DIR, use_cache=use_cache)
-    post_notes = post_process(raw_notes, bpm, audio=preprocessed_audio(wav_path, engine_params),
+    post_notes = post_process(raw_notes, bpm, preprocessed_audio(wav_path, engine_params),
                               **post_params)
 
     # Every metric is computed on this list, which is also what the MIDI is written from.

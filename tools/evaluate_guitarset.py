@@ -189,8 +189,8 @@ def naive_string_assignment(notes):
     or two strings and would be assigned correctly by luck. This ignores context,
     continuity and collisions. It is a harder bar than it looks: on held-out players (test
     split, 120 tracks) the solver trailed it (0.610 vs 0.644) until open strings stopped
-    being free in its cost; it now leads, 0.664 overall and 0.715 vs 0.678 on chords, but
-    is only level on single-note lines (0.612 vs 0.610).
+    being free in its cost; it now leads, 0.661 overall and 0.711 vs 0.675 on chords, but
+    is only level on single-note lines (0.612 vs 0.611).
     """
     mapper = TabMapper()
     out = []

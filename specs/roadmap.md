@@ -29,11 +29,11 @@ test scores makes those scores optimistic. Record each decision in the appendix.
 
 | Measure (held-out GuitarSet players, 120 tracks) | Value | Target |
 | :--- | :--- | :--- |
-| Onset F1, CLI defaults | 0.775 (chords 0.711, single notes 0.839) | 0.92 |
-| Onset F1, clean-recording thresholds (opt-in) | 0.822 | 0.92 |
-| Offset F1, CLI defaults | 0.540 | — |
-| `--tab` string accuracy | 0.664 (naive nearest-to-fret-5 baseline: 0.644) | — |
-| `--tab` string accuracy, single-note lines | 0.612 (naive: 0.610) | — |
+| Onset F1, CLI defaults | 0.784 (chords 0.724, single notes 0.843) | 0.92 |
+| Onset F1, clean-recording thresholds (opt-in) | 0.822 (chords 0.755, single notes 0.890) | 0.92 |
+| Offset F1, CLI defaults | 0.552 | — |
+| `--tab` string accuracy | 0.661 (naive nearest-to-fret-5 baseline: 0.643) | — |
+| `--tab` string accuracy, single-note lines | 0.612 (naive: 0.611) | — |
 | Test suite / coverage | all passing, slow regressions included; 99.8% branch coverage of `src/` | ≥ 95% coverage |
 
 Open requirement gaps (`requirements.md` §6): the accuracy target, latency and memory
@@ -48,7 +48,7 @@ other way, but they have no ground truth, so the question could not be settled.
 | ID | Item | Importance | Effort | Phase |
 | :--- | :--- | :--- | :--- | :--- |
 | A1 | Confirm CI is green on Linux — ✅ done | **Critical** | S | 0 |
-| A2 | Ground truth for your own recordings — 🟡 tooling done, annotation pending | **Critical** | M | 1 |
+| A2 | Ground truth for your own recordings — 🟡 3 of 5 distinct takes annotated | **Critical** | M | 1 |
 | A3 | Confidence intervals on every comparison | **High** | S | 1 |
 | D1 | Write the pitch-bend range into the file | **High** | S | 1 |
 | B1 | Measure preprocessing against ground truth | **High** | S | 1 |
@@ -93,12 +93,13 @@ other way, but they have no ground truth, so the question could not be settled.
   `260df2a`, `e9689ff`), checked through the GitHub API. The ONNX backend and the tool tests
   work on Linux.
 
-#### A2 · Ground truth for your own recordings — **Critical** · M · 🟡 Tooling done; annotation pending
-- **Status:** steps 3–4 are ready: `tools/evaluate_recordings.py` is built and tested, and
-  drafts for the five recordings in `tests/` are in `tests/references/*.draft.mid` as starting
-  points. **Waiting on steps 1–2**, the hand-corrected references, which only a person
-  listening can make. The step-by-step checklist is
-  [`docs/ANNOTATING.md`](../docs/ANNOTATING.md).
+#### A2 · Ground truth for your own recordings — **Critical** · M · 🟡 3 of 5 distinct takes annotated
+- **Status (2026-11-10):** references are committed for four of the five recordings in
+  `tests/`, which are three distinct takes: fingerpicked (in two audio formats, identical
+  references), picked and strummed. `ample_stereo_44-16` is not annotated. The threshold
+  decision needs **two more distinct takes**, ideally a noisy or quiet one. The references
+  already decided two other defaults: re-onset absorption and the velocity scale (appendix).
+  The step-by-step checklist is [`docs/ANNOTATING.md`](../docs/ANNOTATING.md).
 - **Why:** the threshold decision split by recording type. GuitarSet (controlled recording)
   says stricter thresholds gain 4.7 points of onset F1; the recordings in `tests/` suggest
   they lose audible notes (event recall 0.692 → 0.612), but those scores are self-consistency,
@@ -299,7 +300,9 @@ other way, but they have no ground truth, so the question could not be settled.
 
 ## Appendix — Decision record
 
-Decisions made so far, with the evidence. Keep adding to this.
+Decisions made so far, with the evidence. Keep adding to this. Figures are as measured when
+each decision was made; later defaults move the baselines (re-onset absorption, 2026-11-10, took
+the held-out default from 0.775 to 0.784 onset F1), so compare within a row, not across rows.
 
 | Decision | Chosen on | Confirmed on held-out players | Where documented |
 | :--- | :--- | :--- | :--- |
@@ -308,6 +311,6 @@ Decisions made so far, with the evidence. Keep adding to this.
 | Open-string penalty 8 (was bonus 3) | `dev`, 240 tracks | string accuracy 0.610 → 0.664 | `tab_engine.OPEN_STRING_PENALTY` |
 | `max_frets` stays 15 | `dev`, 240 tracks (current costs) | only under the earlier cost: 0.610 at 15, 0.604 at 19, 0.589 at 24 | `tab_engine.TabMapper.__init__` |
 | Thresholds stay at Basic Pitch defaults | `dev` sweep + fixtures | clean values 0.822 vs 0.775, but lose audible notes on fixtures | `basic_pitch_engine.DEFAULT_*` |
-| Absorb phantom re-onsets of ringing notes (`--keep-retriggers` to disable), 0 dB fundamental rise | 3 hand-corrected recordings (onset F1 0.687 → 0.745, offset F1 0.481 → 0.605) + GuitarSet `dev`, 360 tracks (0.772 → 0.769) | onset F1 0.775 → 0.784 (P 0.776 → 0.812, R 0.801 → 0.775); strummed material loses ~0.04 on the strum recording | `retrigger.py` |
-| Velocity scale 0.8 by default | 3 hand-corrected recordings: r = 0.86 with engine velocity at 0.81×; mean error 14.6 → 6.9 | n/a (GuitarSet has no velocity labels) | `post_process.DEFAULT_VELOCITY_SCALE` |
+| Absorb phantom re-onsets of ringing notes, 0 dB fundamental rise (`--keep-retriggers` to disable) | 3 distinct annotated takes: onset F1 0.707 → 0.754 (P 0.594 → 0.682, R 0.928 → 0.867), offset F1 0.523 → 0.617; strum take 0.916 → 0.874 (R 0.954 → 0.856). GuitarSet `dev`, 240 tracks: 0.772 → 0.769 | onset F1 0.775 → 0.784 (P 0.776 → 0.812, R 0.801 → 0.775); string accuracy 0.664 → 0.661 | `retrigger.py` |
+| Velocity scale 0.8 by default | 3 distinct annotated takes, 318 matched notes: r = 0.86 with engine velocity at 0.81×; mean error 14.6 → 6.9 | n/a (GuitarSet has no velocity labels) | `post_process.DEFAULT_VELOCITY_SCALE` |
 | ONNX instead of TensorFlow | all fixtures, note-for-note | not run on held-out players; identical scores on 20 mixed GuitarSet tracks | `basic_pitch_engine.MODEL_PATH` |
