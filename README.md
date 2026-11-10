@@ -69,6 +69,7 @@ Run the converter using the virtual environment's Python interpreter:
 | `--pitch-bend` | Write each note's pitch bend contour (bends, slides, vibrato). Use with `--tab`; see below. | off |
 | `--tab` | Assign notes to strings 1–6 with the Viterbi solver; each string gets its own track and channel. Not full MPE (no channel rotation). | off |
 | `--velocity-curve` | Logarithmic velocity curve factor `k` (e.g. `5.0`); `0.0` disables. | `0.0` |
+| `--velocity-scale` | Multiply output velocities by this, after `--velocity-curve`. The default matches hand-corrected recordings; `1.0` keeps the engine's level. | `0.8` |
 | `--quantize` | Snap notes to a grid: `1/4`, `1/8`, `1/16`, `1/32`. | off |
 | `--quantize-strength` | How far notes move toward the grid, `0.0`–`1.0`. | `1.0` |
 | `--min-duration` | Drop notes shorter than this, in **seconds** (post-filter). | `0.030` |
@@ -77,6 +78,7 @@ Run the converter using the virtual environment's Python interpreter:
 | `--noise-threshold` | RMS threshold for the noise gate (`0.0`–`1.0`); `0.0` disables. | `0.005` |
 | `--onset-threshold` | Basic Pitch onset detection threshold (`0.0`–`1.0`). | `0.5` |
 | `--frame-threshold` | Basic Pitch frame confidence threshold (`0.0`–`1.0`). | `0.3` |
+| `--absorb-retriggers` / `--keep-retriggers` | When a new string is plucked, the model often restarts notes that are still ringing. Absorption folds those false re-onsets back into the ringing note, unless the audio shows that pitch was actually plucked again. May occasionally absorb a genuine re-strum of the same chord. | `--absorb-retriggers` |
 | `--merge` / `--no-merge` | Merge consecutive same-pitch notes. Off by default: it absorbs genuine repeated notes, costing more recall than the precision it gains (see below). | `--no-merge` |
 | `--instrument` | Track name; string tracks become `"<name> - String N"`. Names only: every track uses MIDI program 24 (nylon acoustic guitar). | `"Acoustic Guitar"` |
 

@@ -254,9 +254,53 @@ def test_without_tab_no_string_is_assigned(harness, wav, out):
 def test_velocity_curve_boosts_midrange(harness, wav, out):
     harness.set_notes([{'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 64}])
 
-    assert run([wav, out, '--bpm', '120', '--velocity-curve', '5.0']).exit_code == 0
+    assert run([wav, out, '--bpm', '120', '--velocity-curve', '5.0',
+                '--velocity-scale', '1.0']).exit_code == 0
 
     assert harness.written_notes[0]['velocity'] > 64
+
+
+def test_velocity_is_scaled_down_by_default(harness, wav, out):
+    harness.set_notes([{'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 100}])
+    assert run([wav, out, '--bpm', '120']).exit_code == 0
+    assert harness.written_notes[0]['velocity'] == 80
+
+    harness.set_notes([{'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 100}])
+    assert run([wav, out, '--bpm', '120', '--velocity-scale', '1.0']).exit_code == 0
+    assert harness.written_notes[0]['velocity'] == 100
+
+
+def test_velocity_scale_applies_after_the_curve(harness, wav, out):
+    # Curve first: 64 -> 89 at k=5, then x0.5 -> 44. Scaling first would give 32 -> 58.
+    harness.set_notes([{'pitch': 60, 'start': 0.0, 'end': 0.5, 'velocity': 64}])
+    assert run([wav, out, '--bpm', '120', '--velocity-curve', '5.0',
+                '--velocity-scale', '0.5']).exit_code == 0
+    assert harness.written_notes[0]['velocity'] == 44
+
+
+def test_retrigger_absorption_is_on_by_default_and_gets_the_engine_audio(harness, wav, out):
+    with patch.object(audio2midi, 'absorb_ringing_retriggers',
+                      side_effect=lambda notes, audio, sr: notes) as spy:
+        assert run([wav, out, '--bpm', '120']).exit_code == 0
+    assert spy.call_count == 1
+    audio, sr = spy.call_args.args[1:]
+    assert audio is harness.preprocess.return_value[0] and sr == 22050
+
+
+def test_keep_retriggers_skips_absorption(harness, wav, out):
+    with patch.object(audio2midi, 'absorb_ringing_retriggers') as spy:
+        assert run([wav, out, '--bpm', '120', '--keep-retriggers']).exit_code == 0
+    spy.assert_not_called()
+
+
+def test_absorption_runs_on_cleaned_notes_before_merge(harness, wav, out):
+    """Order: clean (raw thresholds) -> absorb -> merge, as measured on the references."""
+    calls = []
+    with patch.object(audio2midi, 'clean_notes',
+                      side_effect=lambda n, **k: calls.append('clean') or n),          patch.object(audio2midi, 'absorb_ringing_retriggers',
+                      side_effect=lambda n, a, s: calls.append('absorb') or n),          patch.object(audio2midi, 'merge_notes', side_effect=lambda n: calls.append('merge') or n):
+        assert run([wav, out, '--bpm', '120', '--merge']).exit_code == 0
+    assert calls == ['clean', 'absorb', 'merge']
 
 
 def test_preprocessing_options_reach_the_pipeline(harness, wav, out):

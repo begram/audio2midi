@@ -8,13 +8,16 @@ from basic_pitch_engine import (
 )
 from midi_gen import generate_midi
 from post_process import (
+    DEFAULT_VELOCITY_SCALE,
     apply_logarithmic_velocity,
     clean_notes,
     merge_notes,
     quantize_notes,
+    scale_velocity,
     ticks_to_seconds,
 )
 from processor import preprocess_pipeline
+from retrigger import absorb_ringing_retriggers
 from tab_engine import TabMapper
 
 GUITAR_MIN_FREQ = 80.0
@@ -40,6 +43,10 @@ GUITAR_MAX_FREQ = 1400.0
               help='Drop notes below this raw velocity, judged before --velocity-curve.')
 @click.option('--velocity-curve', type=click.FloatRange(min=0.0), default=0.0,
               help='Logarithmic velocity curve factor k (e.g. 5.0); 0.0 disables.')
+@click.option('--velocity-scale', type=click.FloatRange(0.0, 2.0, min_open=True),
+              default=DEFAULT_VELOCITY_SCALE,
+              help='Multiply output velocities by this, after --velocity-curve. The default '
+                   'matches hand-corrected recordings; 1.0 keeps the engine level.')
 @click.option('--noise-threshold', type=click.FloatRange(0.0, 1.0), default=0.005,
               help='RMS threshold for the noise gate; 0.0 disables.')
 @click.option('--hpss', is_flag=True,
@@ -59,6 +66,9 @@ GUITAR_MAX_FREQ = 1400.0
               help='Basic Pitch frame confidence threshold. For clean recordings try 0.5.')
 @click.option('--pitch-bend', is_flag=True,
               help='Write each note\'s pitch bend contour (slides, vibrato). Use with --tab.')
+@click.option('--absorb-retriggers/--keep-retriggers', default=True,
+              help='Fold false re-onsets of a still-ringing note, triggered by a pluck on '
+                   'another string, back into that note. Checks each against the audio.')
 @click.option('--merge/--no-merge', default=False,
               help='Merge consecutive same-pitch notes. Off by default: it removes real '
                    'repeated notes (see post_process.merge_notes).')
@@ -69,9 +79,9 @@ GUITAR_MAX_FREQ = 1400.0
               help='Assign notes to strings 1-6; each string gets its own track and channel.')
 def main(
     input_wav, output_midi, bpm, quantize, quantize_strength,
-    min_duration, min_note_length, velocity_threshold, velocity_curve, noise_threshold,
-    hpss, freq_bounds, min_freq, max_freq, onset_threshold, frame_threshold,
-    pitch_bend, merge, instrument, tab
+    min_duration, min_note_length, velocity_threshold, velocity_curve, velocity_scale,
+    noise_threshold, hpss, freq_bounds, min_freq, max_freq, onset_threshold, frame_threshold,
+    pitch_bend, absorb_retriggers, merge, instrument, tab
 ):
     """Polyphonic Guitar-to-MIDI Converter"""
     eff_min_freq = min_freq if min_freq is not None else (GUITAR_MIN_FREQ if freq_bounds else None)
@@ -121,6 +131,14 @@ def main(
     if velocity_curve > 0:
         click.echo(f"[*] Applying logarithmic velocity curve (k={velocity_curve})...")
         notes = apply_logarithmic_velocity(notes, curvature=velocity_curve)
+    if velocity_scale != 1.0:
+        notes = scale_velocity(notes, velocity_scale)
+
+    if absorb_retriggers:
+        # Needs the audio the engine heard, so it runs here rather than as a pure note stage.
+        before = len(notes)
+        notes = absorb_ringing_retriggers(notes, audio, sr)
+        click.echo(f"[*] Absorbed {before - len(notes)} false re-onsets of ringing notes.")
 
     if merge:
         click.echo("[*] Merging consecutive same-pitch notes...")

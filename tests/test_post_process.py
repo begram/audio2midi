@@ -1,9 +1,11 @@
 import pytest
 
 from post_process import (
+    DEFAULT_VELOCITY_SCALE,
     apply_logarithmic_velocity,
     merge_notes,
     quantize_notes,
+    scale_velocity,
     ticks_to_seconds,
 )
 
@@ -280,3 +282,14 @@ def test_merge_notes_does_not_mutate_source_bend_lists():
 
     assert len(first_bends) == 1
 
+
+
+def test_scale_velocity_rounds_and_clips():
+    notes = [{'velocity': 100}, {'velocity': 1}, {'velocity': 127}]
+    assert [n['velocity'] for n in scale_velocity(notes, 0.8)] == [80, 1, 102]
+    assert [n['velocity'] for n in scale_velocity([{'velocity': 100}], 1.5)] == [127]
+    assert [n['velocity'] for n in scale_velocity([{'velocity': 1}], 0.1)] == [1]
+
+
+def test_default_velocity_scale_lowers_level():
+    assert 0 < DEFAULT_VELOCITY_SCALE < 1

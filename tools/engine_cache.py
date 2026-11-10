@@ -48,3 +48,11 @@ def transcribe_cached(wav_path, engine_params, cache_dir, use_cache=True):
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(notes))
     return notes
+
+
+def preprocessed_audio(wav_path, engine_params):
+    """The audio the engine heard for `engine_params`, for stages that read it after inference
+    (`retrigger.absorb_ringing_retriggers`). Not cached: preprocessing is cheap next to inference.
+    """
+    pre = {k: v for k, v in engine_params.items() if k in PREPROCESS_KEYS}
+    return preprocess_pipeline(str(wav_path), **pre)

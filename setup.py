@@ -12,6 +12,7 @@ setup(
         "basic_pitch_engine",
         "engine_base",
         "post_process",
+        "retrigger",
         "midi_gen",
         "tab_engine",
     ],

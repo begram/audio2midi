@@ -46,8 +46,9 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import basic_pitch_engine as bpe  # noqa: E402
 from audio2midi import GUITAR_MAX_FREQ, GUITAR_MIN_FREQ  # noqa: E402
-from engine_cache import transcribe_cached  # noqa: E402
+from engine_cache import preprocessed_audio, transcribe_cached  # noqa: E402
 from post_process import clean_notes, merge_notes  # noqa: E402
+from retrigger import absorb_ringing_retriggers  # noqa: E402
 from tab_engine import TabMapper  # noqa: E402
 
 DATA_DIR = REPO_ROOT / "data" / "guitarset"
@@ -93,8 +94,9 @@ SPLITS = {
 
 # Named for what the CLI does: merging is opt-in via --merge.
 POST_PRESETS = {
-    "cli_default": {"merge": False},
-    "merge": {"merge": True},
+    "cli_default": {"merge": False, "absorb": True},
+    "keep_retriggers": {"merge": False, "absorb": False},
+    "merge": {"merge": True, "absorb": True},
 }
 
 
@@ -209,6 +211,9 @@ def evaluate(wav_path, jams_path, engine_name, post_name, use_cache):
     raw = transcribe_cached(wav_path, ENGINE_PRESETS[engine_name], CACHE_DIR, use_cache=use_cache)
 
     notes = clean_notes([dict(n) for n in raw])
+    if POST_PRESETS[post_name]["absorb"]:
+        notes = absorb_ringing_retriggers(
+            notes, *preprocessed_audio(wav_path, ENGINE_PRESETS[engine_name]))
     if POST_PRESETS[post_name]["merge"]:
         notes = merge_notes(notes)
 

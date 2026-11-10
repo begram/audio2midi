@@ -308,4 +308,6 @@ Decisions made so far, with the evidence. Keep adding to this.
 | Open-string penalty 8 (was bonus 3) | `dev`, 240 tracks | string accuracy 0.610 → 0.664 | `tab_engine.OPEN_STRING_PENALTY` |
 | `max_frets` stays 15 | `dev`, 240 tracks (current costs) | only under the earlier cost: 0.610 at 15, 0.604 at 19, 0.589 at 24 | `tab_engine.TabMapper.__init__` |
 | Thresholds stay at Basic Pitch defaults | `dev` sweep + fixtures | clean values 0.822 vs 0.775, but lose audible notes on fixtures | `basic_pitch_engine.DEFAULT_*` |
+| Absorb phantom re-onsets of ringing notes (`--keep-retriggers` to disable), 0 dB fundamental rise | 3 hand-corrected recordings (onset F1 0.687 → 0.745, offset F1 0.481 → 0.605) + GuitarSet `dev`, 360 tracks (0.772 → 0.769) | onset F1 0.775 → 0.784 (P 0.776 → 0.812, R 0.801 → 0.775); strummed material loses ~0.04 on the strum recording | `retrigger.py` |
+| Velocity scale 0.8 by default | 3 hand-corrected recordings: r = 0.86 with engine velocity at 0.81×; mean error 14.6 → 6.9 | n/a (GuitarSet has no velocity labels) | `post_process.DEFAULT_VELOCITY_SCALE` |
 | ONNX instead of TensorFlow | all fixtures, note-for-note | not run on held-out players; identical scores on 20 mixed GuitarSet tracks | `basic_pitch_engine.MODEL_PATH` |

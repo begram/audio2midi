@@ -44,9 +44,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import evaluate_guitarset as eg  # noqa: E402
-from engine_cache import transcribe_cached  # noqa: E402
+from engine_cache import preprocessed_audio, transcribe_cached  # noqa: E402
 from midi_gen import generate_midi  # noqa: E402
 from post_process import clean_notes  # noqa: E402
+from retrigger import absorb_ringing_retriggers  # noqa: E402
 
 RECORDINGS_DIR = REPO_ROOT / "tests"
 REFERENCES_DIR = RECORDINGS_DIR / "references"
@@ -85,9 +86,11 @@ def load_reference_midi(midi_path):
 
 
 def pipeline_notes(wav_path, engine_params, use_cache=True):
-    """The CLI's default post-processing: clean only (merging is off by default)."""
+    """The CLI's default post-processing: clean, then absorb phantom re-onsets (merging is
+    off by default)."""
     raw = transcribe_cached(wav_path, engine_params, CACHE_DIR, use_cache=use_cache)
-    return clean_notes([dict(n) for n in raw])
+    notes = clean_notes([dict(n) for n in raw])
+    return absorb_ringing_retriggers(notes, *preprocessed_audio(wav_path, engine_params))
 
 
 def draft_notes(wav_path, presets=COMPARED_PRESETS):

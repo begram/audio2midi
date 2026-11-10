@@ -94,9 +94,12 @@ pure stage that takes and returns note data.
 
 ```
 wav ──> processor ──> basic_pitch_engine ──> post_process ──> tab_engine ──> midi_gen ──> .mid
-        (DSP prep)    (ML inference)         (clean/merge/    (string       (SMF write)
-                                              quantize)        assignment)
+        (DSP prep)    (ML inference)         (clean/absorb/   (string       (SMF write)
+                                              merge/quantize)  assignment)
 ```
+
+`retrigger.absorb_ringing_retriggers` is the one post-engine stage that also reads audio (the
+preprocessed signal the engine heard), so `main()` passes it `audio, sr` alongside the notes.
 
 **The note dict is the contract between every stage.** Defined in `src/engine_base.py`
 (`TranscriptionEngine.transcribe` docstring):
@@ -125,8 +128,11 @@ These are load-bearing; reordering silently corrupts output:
    docstring for the full numbers before considering re-enabling it. Since it normally does not
    run, `_resolve_string_overlaps` must handle duplicate same-pitch detections itself rather than
    assuming they were merged away.
-3. `clean_notes` runs before `apply_logarithmic_velocity`, so the velocity threshold applies to raw
-   engine confidence, not to remapped values.
+3. `clean_notes` runs before `apply_logarithmic_velocity` and `scale_velocity`, so the velocity
+   threshold applies to raw engine confidence, not to remapped values. The curve runs before the
+   scale, so `--velocity-scale` sets the final level whatever the curve does.
+4. `absorb_ringing_retriggers` runs after `clean_notes` and before `merge_notes`, which is the
+   order it was measured in. The evaluation tools mirror this (`keep_retriggers` presets turn it off).
 
 ### Design decisions that look like candidates for "simplification" but aren't
 
@@ -181,6 +187,20 @@ These are load-bearing; reordering silently corrupts output:
 
   The invariant to preserve: **no two simultaneous notes may share a string.** Violating it also
   breaks the per-string channel design, since one channel's bend would apply to both notes.
+
+- **Phantom re-onsets are absorbed by checking the audio, not the note list**
+  (`retrigger.py`, on by default, `--keep-retriggers` to disable). When another string is plucked,
+  Basic Pitch often restarts notes that are still ringing; on the hand-corrected references that
+  was ~60% of all false notes. Real and phantom re-onsets look identical as notes (no gap,
+  overlapping velocities; a velocity-ratio rule gained ≤ 0.003 F1). The fundamental's level
+  separates them: median +5.4 dB across a real re-pluck, −0.2 dB across a phantom. Threshold 0 dB:
+  references onset F1 0.687 → 0.745, offset F1 0.481 → 0.605; GuitarSet neutral (held-out
+  0.775 → 0.784) but recall drops ~3 points there and on strummed material, where a re-strum of
+  the same chord can read as a phantom. That trade is accepted because the user reported phantom
+  re-onsets as the most common error in their own recordings.
+- **Velocities are scaled by 0.8 by default** (`post_process.DEFAULT_VELOCITY_SCALE`). The
+  hand-corrected references track engine velocity closely (r = 0.86) at 0.81× its level; a plain
+  scale halves the mean error (14.6 → 6.9) and an offset term adds nothing.
 
 ### Two independent duration gates
 

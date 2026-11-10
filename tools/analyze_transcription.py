@@ -38,7 +38,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import basic_pitch_engine as bpe  # noqa: E402
 from audio2midi import GUITAR_MAX_FREQ, GUITAR_MIN_FREQ  # noqa: E402
-from engine_cache import transcribe_cached  # noqa: E402
+from engine_cache import preprocessed_audio, transcribe_cached  # noqa: E402
 from midi_gen import generate_midi  # noqa: E402
 from post_process import (  # noqa: E402
     clean_notes,
@@ -47,6 +47,7 @@ from post_process import (  # noqa: E402
     ticks_to_seconds,
 )
 from processor import load_audio  # noqa: E402
+from retrigger import absorb_ringing_retriggers  # noqa: E402
 from tab_engine import TabMapper  # noqa: E402
 
 FIXTURE_DIR = REPO_ROOT / "tests"
@@ -99,6 +100,7 @@ ENGINE_PRESETS = {
 # Named for what the CLI does: merging is opt-in via --merge.
 POST_PRESETS = {
     "cli_default": {},
+    "keep_retriggers": {"absorb": False},
     "merge": {"merge": True},
     "quantize_1_16": {"quantize": "1/16"},
 }
@@ -108,10 +110,15 @@ POST_PRESETS = {
 # pipeline
 # --------------------------------------------------------------------------------------
 
-def post_process(notes, bpm, merge=False, quantize=None):
-    """Mirrors the CLI's post-processing order, which is load-bearing."""
+def post_process(notes, bpm, audio=None, merge=False, quantize=None, absorb=True):
+    """Mirrors the CLI's post-processing order, which is load-bearing.
+
+    `audio` is the (samples, sr) pair the engine heard; re-onset absorption needs it.
+    """
     notes = [dict(n) for n in notes]
     notes = clean_notes(notes)
+    if absorb and audio is not None:
+        notes = absorb_ringing_retriggers(notes, *audio)
     if merge:
         notes = merge_notes(notes)
     if quantize:
@@ -343,7 +350,8 @@ def analyze(wav_path, engine_name, post_name, bpm, reference, use_cache):
     post_params = POST_PRESETS[post_name]
 
     raw_notes = transcribe_cached(wav_path, engine_params, CACHE_DIR, use_cache=use_cache)
-    post_notes = post_process(raw_notes, bpm, **post_params)
+    post_notes = post_process(raw_notes, bpm, audio=preprocessed_audio(wav_path, engine_params),
+                              **post_params)
 
     # Every metric is computed on this list, which is also what the MIDI is written from.
     # String assignment is not a free annotation pass: resolving same-string overlaps

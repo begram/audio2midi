@@ -5,14 +5,14 @@ import pretty_midi
 import pytest
 
 # (fixture wav, measured note count, tolerance band). Counts are what the CLI defaults
-# produce today (ONNX model, merging off); each band is roughly +-8% around it, so a real
+# produce today (ONNX model, merging off, re-onset absorption on); each band is roughly +-8% around it, so a real
 # DSP or threshold change trips it while run-to-run numeric noise does not. Re-measure and
 # update deliberately when defaults change.
 REGRESSION_CASES = [
-    ("Fingerpick_mono_44-16.wav", 139, (128, 150)),
-    ("Fingerpick_stereo_48-24.wav", 139, (128, 150)),
-    ("plektrumpick_mono_44-16.wav", 155, (143, 167)),
-    ("plektrumstrum_mono_44-16.wav", 211, (194, 228)),
+    ("Fingerpick_mono_44-16.wav", 101, (93, 109)),
+    ("Fingerpick_stereo_48-24.wav", 101, (93, 109)),
+    ("plektrumpick_mono_44-16.wav", 118, (109, 127)),
+    ("plektrumstrum_mono_44-16.wav", 187, (172, 202)),
 ]
 
 
